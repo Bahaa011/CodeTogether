@@ -1,0 +1,9 @@
+.app-shell {
+  min-height: 100vh;
+  background: transparent;
+  color: #cfd8ff;
+}
+
+.app-main {
+  padding: 1.5rem;
+}

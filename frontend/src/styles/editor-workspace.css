@@ -1,0 +1,236 @@
+.editor-view {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #0b1324;
+  border: 1px solid rgba(15, 23, 42, 0.65);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.05);
+  overflow: hidden;
+}
+
+.editor-view__canvas {
+  height: 100%;
+  position: relative;
+}
+
+.editor-view__meta {
+  position: absolute;
+  inset: 0 auto auto 0;
+  top: 14px;
+  left: 18px;
+  right: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 2;
+  font-family: "Fira Code", "Source Code Pro", monospace;
+}
+
+.editor-view__filename {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #f8fafc;
+  text-transform: none;
+}
+
+.editor-view__badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.editor-view__badge {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  background: rgba(148, 163, 184, 0.14);
+  color: #a5b4fc;
+}
+
+.editor-view__badge--dirty {
+  background: rgba(251, 191, 36, 0.16);
+  color: #facc15;
+}
+
+.editor-view__badge--saving {
+  background: rgba(34, 197, 94, 0.16);
+  color: #5eead4;
+}
+
+.editor-view__badge--error {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+
+.editor-view__placeholder {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.editor-view__error {
+  margin-top: 1rem;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  font-size: 0.82rem;
+  color: #fecdd3;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.terminal-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #151f32;
+  border: 1px solid rgba(15, 23, 42, 0.65);
+  border-radius: 12px;
+  font-family: "Fira Code", "Source Code Pro", monospace;
+  font-size: 0.78rem;
+  color: #cbd5f5;
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.05);
+}
+
+.terminal-pane__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.7rem 1.2rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: rgba(148, 163, 184, 0.78);
+}
+
+.terminal-pane__body {
+  flex: 1;
+  padding: 1rem 1.25rem;
+  line-height: 1.5;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.terminal-pane__line {
+  margin: 0.2rem 0;
+  display: block;
+  color: rgba(203, 213, 225, 0.8);
+}
+
+.terminal-pane__line:first-child {
+  margin-top: 0;
+}
+
+.terminal-pane__line:last-child {
+  margin-bottom: 0;
+}
+
+.terminal-pane__line--muted {
+  color: rgba(148, 163, 184, 0.75);
+}
+
+.terminal-pane__line--stdout {
+  color: rgba(226, 232, 240, 0.9);
+}
+
+.terminal-pane__line--stderr {
+  color: #f87171;
+}
+
+.terminal-pane__line--info {
+  color: #60a5fa;
+}
+
+.terminal-pane__line--error {
+  color: #fca5a5;
+  font-weight: 600;
+}
+
+.terminal-pane__line--command {
+  color: #fbbf24;
+}
+
+.terminal-pane__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.terminal-pane__status {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.65);
+}
+
+.terminal-pane__action-button {
+  padding: 0.35rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+
+.terminal-pane__action-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: rgba(239, 68, 68, 0.24);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #fecaca;
+}
+
+.terminal-pane__action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.terminal-pane__footer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1.25rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.6);
+  background: rgba(10, 19, 41, 0.75);
+}
+
+.terminal-pane__prompt {
+  font-weight: 700;
+  color: rgba(94, 234, 212, 0.85);
+}
+
+.terminal-pane__input {
+  flex: 1;
+  border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.8);
+  color: rgba(226, 232, 240, 0.92);
+  font-family: "Fira Code", "Source Code Pro", monospace;
+  font-size: 0.78rem;
+  padding: 0.45rem 0.6rem;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.terminal-pane__input:focus {
+  outline: none;
+  border-color: rgba(94, 234, 212, 0.45);
+  box-shadow: 0 0 0 2px rgba(94, 234, 212, 0.18);
+}
+
+.terminal-pane__input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
