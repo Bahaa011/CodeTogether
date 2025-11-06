@@ -322,6 +322,7 @@ export default function Navbar(props: NavbarProps = {}) {
               subtitle: candidate.email ?? "No email provided",
               type: "user" as const,
               email: candidate.email ?? undefined,
+              avatarUrl: candidate.avatar_url ?? null,
             }));
 
           if (!cancelled) {
@@ -670,11 +671,33 @@ export default function Navbar(props: NavbarProps = {}) {
                           className="navbar__search-result"
                           onClick={() => handleSearchSelect(result)}
                         >
-                          <span className="navbar__search-result-title">
-                            {result.title}
-                          </span>
-                          <span className="navbar__search-result-subtitle">
-                            {result.subtitle}
+                          {result.type === "user" ? (
+                            <span
+                              className="navbar__search-result-avatar"
+                              aria-hidden="true"
+                            >
+                              {result.avatarUrl ? (
+                                <img
+                                  src={resolveAssetUrl(result.avatarUrl)}
+                                  alt={result.title}
+                                  loading="lazy"
+                                />
+                              ) : (
+                                (result.title?.[0] || "U").toUpperCase()
+                              )}
+                            </span>
+                          ) : (
+                            <span className="navbar__search-result-avatar navbar__search-result-avatar--project">
+                              PR
+                            </span>
+                          )}
+                          <span className="navbar__search-result-content">
+                            <span className="navbar__search-result-title">
+                              {result.title}
+                            </span>
+                            <span className="navbar__search-result-subtitle">
+                              {result.subtitle}
+                            </span>
                           </span>
                           <span className="navbar__search-result-pill">
                             {result.type === "project" ? "Project" : "User"}
