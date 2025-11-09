@@ -1,11 +1,16 @@
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   Min,
 } from 'class-validator';
+import { MAX_PROJECT_TAGS, PROJECT_TAG_OPTIONS } from '../project.constants';
 
 export class CreateProjectDto {
   @IsString()
@@ -23,6 +28,13 @@ export class CreateProjectDto {
   @IsOptional()
   @IsBoolean()
   is_public?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_PROJECT_TAGS)
+  @ArrayUnique()
+  @IsIn(PROJECT_TAG_OPTIONS, { each: true })
+  tags?: string[];
 }
 
 export class UpdateProjectDto {
@@ -39,4 +51,11 @@ export class UpdateProjectDto {
   @IsOptional()
   @IsBoolean()
   is_public?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_PROJECT_TAGS)
+  @ArrayUnique()
+  @IsIn(PROJECT_TAG_OPTIONS, { each: true })
+  tags?: string[];
 }

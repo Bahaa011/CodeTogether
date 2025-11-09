@@ -19,6 +19,8 @@ type SidebarProps = {
   onRefresh(): void;
   onCreateFile?(): void;
   canCreateFiles?: boolean;
+  onDeleteFile?(fileId: number): void;
+  canDeleteFiles?: boolean;
   projectTitle?: string;
   collaborators?: SidebarCollaborator[];
 };
@@ -41,6 +43,8 @@ export default function Sidebar({
   onRefresh,
   onCreateFile,
   canCreateFiles = true,
+  onDeleteFile,
+  canDeleteFiles = true,
   projectTitle,
   collaborators = [],
 }: SidebarProps) {
@@ -114,7 +118,7 @@ export default function Sidebar({
                     : "workspace-sidebar__file";
 
                   return (
-                    <li key={file.id}>
+                    <li key={file.id} className="workspace-sidebar__file-row">
                       <button
                         type="button"
                         onClick={() => onSelect(file.id)}
@@ -127,12 +131,18 @@ export default function Sidebar({
                         <span className="workspace-sidebar__file-name">
                           {file.filename}
                         </span>
-                        {file.dirty && (
-                          <span className="workspace-sidebar__file-status">
-                            ●
-                          </span>
-                        )}
                       </button>
+                      {onDeleteFile && canDeleteFiles && (
+                        <button
+                          type="button"
+                          className="workspace-sidebar__file-delete"
+                          aria-label={`Delete ${file.filename}`}
+                          title={`Delete ${file.filename}`}
+                          onClick={() => onDeleteFile(file.id)}
+                        >
+                          <span aria-hidden="true">🗑</span>
+                        </button>
+                      )}
                     </li>
                   );
                 })}

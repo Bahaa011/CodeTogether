@@ -2,8 +2,116 @@
   color-scheme: dark;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont,
     sans-serif;
-  background-color: #0b0f14;
-  color: #cfd8ff;
+  --page-bg: #050810;
+  --page-surface: #0d1424;
+  --page-surface-highlight: #111a2c;
+  --page-border: rgba(99, 102, 241, 0.25);
+  --page-card-border: rgba(62, 80, 132, 0.35);
+  --text-primary: #e2e8ff;
+  --text-secondary: #9aa7d8;
+  --text-muted: #7b8ab9;
+  --accent-primary: #6366f1;
+  --accent-secondary: #38bdf8;
+  --body-gradient: linear-gradient(180deg, #07112b, #010308);
+  --shadow-soft: 0 18px 30px rgba(7, 12, 28, 0.45);
+  --surface-hero: linear-gradient(135deg, rgba(6, 11, 28, 0.95), rgba(12, 16, 36, 0.9));
+  --surface-panel: rgba(17, 24, 39, 0.92);
+  --surface-card: rgba(12, 18, 46, 0.85);
+  --surface-card-alt: rgba(9, 14, 30, 0.85);
+  --surface-muted: rgba(25, 37, 64, 0.65);
+  --surface-overlay: rgba(11, 18, 32, 0.9);
+  --border-strong: rgba(62, 80, 132, 0.35);
+  --border-soft: rgba(99, 102, 241, 0.18);
+  --chip-border: rgba(146, 161, 209, 0.5);
+  --chip-bg: rgba(10, 15, 30, 0.9);
+  --nav-bg: rgba(11, 18, 32, 0.95);
+  --nav-border: #1d2741;
+  --nav-input-bg: #11192c;
+  --nav-input-border: #1f2a44;
+  --nav-input-text: #dce6ff;
+  --nav-input-placeholder: #60739b;
+  background-color: var(--page-bg);
+  color: var(--text-primary);
+  --editor-shell: #0b1324;
+  --editor-panel: rgba(10, 19, 41, 0.95);
+  --editor-border: rgba(15, 23, 42, 0.65);
+  --editor-sidebar-bg: linear-gradient(180deg, rgba(10, 19, 41, 0.95), rgba(6, 11, 25, 0.95));
+  --editor-sidebar-text: rgba(203, 213, 225, 0.8);
+  --editor-sidebar-muted: rgba(148, 163, 184, 0.65);
+  --editor-sidebar-hover: rgba(39, 51, 89, 0.6);
+  --editor-sidebar-active: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(14, 165, 233, 0.25));
+  --editor-tab-bg: rgba(15, 23, 42, 0.6);
+  --editor-tab-text: rgba(148, 163, 184, 0.8);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  /* 🌤️ Backgrounds & Base Layers */
+  --page-bg: #e8ecf7; /* bluish gray background (less white, more gentle) */
+  --page-surface: #f9faff; /* slightly off-white for elevated surfaces */
+  --page-surface-highlight: #e4e9f8; /* soft blue highlight */
+  --page-border: rgba(120, 130, 180, 0.25);
+  --page-card-border: rgba(140, 150, 200, 0.25);
+
+  /* 🎨 Text Colors */
+  --text-primary: #111827; /* deep neutral navy */
+  --text-secondary: #3b445a;
+  --text-muted: #5b6580;
+
+  /* ✨ Accent Palette */
+  --accent-primary: #4f46e5; /* indigo */
+  --accent-secondary: #3b82f6; /* blue */
+  --accent-tertiary: #06b6d4; /* cyan for variety */
+
+  /* 🌈 Background Gradient */
+  --body-gradient: linear-gradient(180deg, #f0f4ff 0%, #dfe6f9 40%, #e8ecf7 100%);
+
+  /* 🪞 Elevation & Shadows */
+  --shadow-soft: 0 10px 25px rgba(20, 30, 80, 0.12),
+    0 2px 6px rgba(20, 30, 80, 0.08);
+
+  /* 🧊 Surfaces */
+  --surface-hero: linear-gradient(145deg, #ffffff, #ecf1ff);
+  --surface-panel: #f9faff;
+  --surface-card: #f1f4ff;
+  --surface-card-alt: #e6ebfa;
+  --surface-muted: #edf1fd;
+  --surface-overlay: rgba(255, 255, 255, 0.9);
+
+  /* ⚙️ Borders & Chips */
+  --border-strong: rgba(80, 100, 150, 0.3);
+  --border-soft: rgba(100, 120, 170, 0.15);
+  --chip-border: rgba(120, 130, 200, 0.3);
+  --chip-bg: #f7f9ff;
+
+  /* 🧭 Navbar + Inputs */
+  --nav-bg: rgba(247, 249, 255, 0.9);
+  --nav-border: rgba(180, 190, 220, 0.35);
+  --nav-input-bg: #eef2ff;
+  --nav-input-border: rgba(99, 102, 241, 0.25);
+  --nav-input-text: #1e293b;
+  --nav-input-placeholder: #7b8cae;
+
+  /* 🧠 Editor / App Areas */
+  --editor-shell: #e8ecf7;
+  --editor-panel: #f9faff;
+  --editor-border: rgba(160, 170, 210, 0.3);
+  --editor-sidebar-bg: linear-gradient(180deg, #f9faff, #e4e9f8);
+  --editor-sidebar-text: #334155;
+  --editor-sidebar-muted: rgba(100, 116, 139, 0.85);
+  --editor-sidebar-hover: rgba(99, 102, 241, 0.1);
+  --editor-sidebar-active: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.15),
+    rgba(14, 165, 233, 0.15)
+  );
+  --editor-tab-bg: rgba(99, 102, 241, 0.06);
+  --editor-tab-text: rgba(51, 65, 85, 0.9);
+
+  /* 🧍 Global text & page */
+  background-color: var(--page-bg);
+  color: var(--text-primary);
 }
 
 *,
@@ -14,12 +122,15 @@
 
 body {
   margin: 0;
-  background: radial-gradient(120% 120% at 50% 0%, #111a2c 0%, #050810 100%);
   min-height: 100vh;
+  background: var(--body-gradient);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 #root {
   min-height: 100vh;
+  color: inherit;
 }
 
 button {

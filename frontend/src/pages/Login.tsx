@@ -1,13 +1,6 @@
-import { type FormEvent, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import Modal from "../components/Modal";
-import {
-  loginUser,
-  requestPasswordReset,
-  verifyMfaLogin,
-  type LoginSuccessResponse,
-} from "../services/authService";
-import { getToken, setRole, setStoredUser, setToken } from "../utils/auth";
+import { useLoginForm } from "../hooks/useAuthForms";
+import Modal from "../components/modal/Modal";
 import "../styles/auth.css";
 
 type LocationState = {
@@ -21,165 +14,50 @@ export default function Login() {
   const locationState = location.state as LocationState | null;
   const redirectFrom = locationState?.from;
   const incomingResetSuccess = locationState?.resetSuccess;
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasToken, setHasToken] = useState(() => Boolean(getToken()));
-  const [isResetOpen, setIsResetOpen] = useState(false);
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetError, setResetError] = useState<string | null>(null);
-  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
-  const [isResetSubmitting, setIsResetSubmitting] = useState(false);
-  const [loginSuccessMessage, setLoginSuccessMessage] = useState<string | null>(
-    () => incomingResetSuccess ?? null,
-  );
-  const [requiresMfa, setRequiresMfa] = useState(false);
-  const [mfaToken, setMfaToken] = useState<string | null>(null);
-  const [mfaCode, setMfaCode] = useState("");
-  const [mfaMessage, setMfaMessage] = useState<string | null>(null);
-  const [isVerifyingMfa, setIsVerifyingMfa] = useState(false);
-
   const redirectPath = redirectFrom || "/";
 
-  useEffect(() => {
-    if (isResetOpen) {
-      setResetEmail((current) => current || email);
-      return;
-    }
-
-    setResetError(null);
-    setResetSuccess(null);
-    setIsResetSubmitting(false);
-  }, [isResetOpen, email]);
-
-  useEffect(() => {
-    if (!incomingResetSuccess) {
-      return;
-    }
-
-    setLoginSuccessMessage(incomingResetSuccess);
-    navigate(location.pathname, {
-      replace: true,
-      state: redirectFrom ? { from: redirectFrom } : undefined,
-    });
-  }, [incomingResetSuccess, redirectFrom, location.pathname, navigate]);
+  const {
+    hasToken,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    error,
+    isSubmitting,
+    loginSuccessMessage,
+    requiresMfa,
+    mfaCode,
+    setMfaCode,
+    isVerifyingMfa,
+    headerTitle,
+    headerSubtitle,
+    isResetOpen,
+    resetEmail,
+    setResetEmail,
+    resetError,
+    resetSuccess,
+    isResetSubmitting,
+    openResetModal,
+    closeResetModal,
+    handleResetSubmit,
+    handleSubmit,
+    handleVerifyMfa,
+    handleCancelMfa,
+  } = useLoginForm({
+    incomingResetSuccess,
+    onAuthenticated: () => navigate(redirectPath, { replace: true }),
+    onResetSuccess: () => {},
+    replaceLocation: (state) =>
+      navigate(location.pathname, {
+        replace: true,
+        state: state ?? (redirectFrom ? { from: redirectFrom } : undefined),
+      }),
+    redirectState: redirectFrom ? { from: redirectFrom } : undefined,
+  });
 
   if (hasToken) {
     return <Navigate to={redirectPath} replace />;
   }
-
-  const handleLoginSuccess = (data: LoginSuccessResponse) => {
-    setToken(data.access_token);
-    setStoredUser(data.user);
-    setRole((data.user as { role?: string }).role || null);
-    setHasToken(true);
-    navigate(redirectPath, { replace: true });
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setLoginSuccessMessage(null);
-    setError(null);
-    setIsSubmitting(true);
-    setRequiresMfa(false);
-    setMfaToken(null);
-    setMfaMessage(null);
-    setMfaCode("");
-
-    try {
-      const data = await loginUser(email, password);
-      if ("requires_mfa" in data && data.requires_mfa) {
-        setRequiresMfa(true);
-        setMfaToken(data.mfaToken);
-        setMfaMessage(data.message ?? "Enter the code we emailed you.");
-        setIsSubmitting(false);
-        return;
-      }
-
-      handleLoginSuccess(data);
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to sign in right now.";
-      setError(message);
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleVerifyMfa = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!mfaToken || !mfaCode.trim()) {
-      setError("Enter the 6-digit code to continue.");
-      return;
-    }
-
-    setError(null);
-    setIsVerifyingMfa(true);
-
-    try {
-      const data = await verifyMfaLogin(mfaToken, mfaCode.trim());
-      handleLoginSuccess(data);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to verify the code right now.";
-      setError(message);
-    } finally {
-      setIsVerifyingMfa(false);
-    }
-  };
-
-  const handleCancelMfa = () => {
-    setRequiresMfa(false);
-    setMfaToken(null);
-    setMfaCode("");
-    setMfaMessage(null);
-    setIsSubmitting(false);
-  };
-
-  const openResetModal = () => {
-    setResetEmail(email);
-    setIsResetOpen(true);
-  };
-
-  const closeResetModal = () => {
-    setIsResetOpen(false);
-  };
-
-  const handleResetSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (isResetSubmitting) return;
-
-    const trimmedEmail = resetEmail.trim();
-    if (!trimmedEmail) {
-      setResetError("Please enter the email associated with your account.");
-      return;
-    }
-
-    setIsResetSubmitting(true);
-    setResetError(null);
-    setResetSuccess(null);
-
-    try {
-      const message = await requestPasswordReset(trimmedEmail);
-      setResetSuccess(message);
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to process password reset right now.";
-      setResetError(message);
-    } finally {
-      setIsResetSubmitting(false);
-    }
-  };
-
-  const headerTitle = requiresMfa ? "Verify it's you" : "Welcome back";
-  const headerSubtitle = requiresMfa
-    ? mfaMessage ?? "Enter the 6-digit code we emailed you to finish signing in."
-    : "Sign in to continue your projects.";
 
   return (
     <>

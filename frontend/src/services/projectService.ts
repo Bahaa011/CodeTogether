@@ -1,3 +1,4 @@
+import axios from "axios";
 import { apiClient, buildAxiosError } from "./apiClient";
 
 export type ProjectCollaborator = {
@@ -7,6 +8,7 @@ export type ProjectCollaborator = {
     id: number;
     username?: string;
     email?: string;
+    avatar_url?: string | null;
   };
 };
 
@@ -24,6 +26,7 @@ export type Project = {
     id: number;
     username?: string;
     email?: string;
+    avatar_url?: string | null;
   };
   ownerId?: number;
   created_at?: string;
@@ -48,6 +51,9 @@ export async function fetchProjectsByOwner(ownerId: number) {
     const { data } = await apiClient.get<Project[]>(`/projects/owner/${ownerId}`);
     return data;
   } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return [];
+    }
     throw buildAxiosError("Fetch projects", error);
   }
 }
@@ -66,6 +72,7 @@ type CreateProjectPayload = {
   description: string;
   owner_id: number;
   is_public?: boolean;
+  tags?: string[];
 };
 
 export async function createProject(payload: CreateProjectPayload) {
@@ -90,6 +97,7 @@ type UpdateProjectPayload = Partial<{
   title: string;
   description: string;
   is_public: boolean;
+  tags: string[];
 }>;
 
 export async function updateProject(projectId: number, payload: UpdateProjectPayload) {
@@ -101,5 +109,13 @@ export async function updateProject(projectId: number, payload: UpdateProjectPay
     return data.project;
   } catch (error) {
     throw buildAxiosError("Update project", error);
+  }
+}
+
+export async function deleteProject(projectId: number) {
+  try {
+    await apiClient.delete(`/projects/${projectId}`);
+  } catch (error) {
+    throw buildAxiosError("Delete project", error);
   }
 }

@@ -12,7 +12,6 @@ export class SessionController {
     return await this.sessionService.createSession(
       createDto.user_id,
       createDto.project_id,
-      createDto.file_id,
     );
   }
 
@@ -20,6 +19,17 @@ export class SessionController {
   @Get('active/:userId')
   async getActiveSessions(@Param('userId') userId: number) {
     return await this.sessionService.getActiveSessions(userId);
+  }
+
+  @Get('project/:projectId/active')
+  async getProjectSessions(@Param('projectId') projectId: number) {
+    return await this.sessionService.getActiveSessionsByProject(projectId);
+  }
+
+  @Get('user/:userId/long')
+  async getUserLongSessions(@Param('userId') userId: number) {
+    const count = await this.sessionService.countLongSessions(userId);
+    return { count };
   }
 
   // End session

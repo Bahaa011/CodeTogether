@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createProjectFile,
+  deleteProjectFile,
   fetchProjectFiles,
   updateProjectFile,
   type ProjectFile,
@@ -70,6 +71,7 @@ export type ProjectEditor = {
     input: { filename: string; content?: string },
   ): Promise<EditorFileState>;
   syncFileContent(fileId: number, content: string, markClean?: boolean): void;
+  deleteFile(fileId: number): Promise<void>;
 };
 
 function deriveFileType(filename: string) {
@@ -437,6 +439,31 @@ export function useProjectEditor(
     [setFileState],
   );
 
+  const deleteFile = useCallback(async (fileId: number) => {
+    await deleteProjectFile(fileId);
+    setState((prev) => {
+      if (!prev.files[fileId]) {
+        return prev;
+      }
+      const { [fileId]: _, ...rest } = prev.files;
+      const nextOpenIds = prev.openFileIds.filter((id) => id !== fileId);
+      let nextActiveId = prev.activeFileId;
+      if (prev.activeFileId === fileId) {
+        nextActiveId =
+          nextOpenIds[nextOpenIds.length - 1] ??
+          (Object.keys(rest).length
+            ? Number(Object.keys(rest)[0])
+            : null);
+      }
+
+      return {
+        files: rest,
+        openFileIds: nextOpenIds,
+        activeFileId: nextActiveId,
+      };
+    });
+  }, []);
+
   const files = useMemo(
     () =>
       Object.values(state.files).sort((a, b) =>
@@ -474,5 +501,6 @@ export function useProjectEditor(
     refresh,
     createFile,
     syncFileContent,
+    deleteFile,
   };
 }

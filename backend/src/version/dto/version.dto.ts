@@ -18,4 +18,8 @@ export class CreateVersionDto {
   @IsString()
   @IsNotEmpty()
   content: string;
+
+  @IsOptional()
+  @IsString()
+  label?: string;
 }

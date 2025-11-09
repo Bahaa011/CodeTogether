@@ -57,17 +57,18 @@ export class ProjectController {
   // ---------------- POST ----------------
   @Post()
   async create(@Body() createDto: CreateProjectDto) {
-    const { title, description, owner_id, is_public } = createDto;
+    const { title, description, owner_id, is_public, tags } = createDto;
 
     if (!title || !description || !owner_id)
       throw new BadRequestException('Missing required fields.');
 
-    return await this.service.createProject(
+    return await this.service.createProject({
       title,
       description,
       owner_id,
       is_public,
-    );
+      tags,
+    });
   }
 
   // ---------------- PUT ----------------

@@ -1,18 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Sidebar, { type SidebarCollaborator } from "../components/Sidebar";
-import FileTabs from "../components/Editor/FileTabs";
-import CodeEditor from "../components/Editor/CodeEditor";
-import { useProjectEditor } from "../hooks/useProjectEditor";
-import { AUTH_USER_EVENT, getStoredUser, type StoredUser } from "../utils/auth";
-import CreateFileModal from "../components/Editor/CreateFileModal";
-import InviteCollaboratorModal from "../components/InviteCollaboratorModal";
-import ProjectSettingsModal from "../components/ProjectSettingsModal";
-import { fetchProjectById, type Project } from "../services/projectService";
-import { inviteCollaborator } from "../services/collaboratorService";
-import { createVersionBackup } from "../services/versionService";
-import Terminal from "../components/Editor/Terminal";
-import { useRealtimeCollaboration } from "../hooks/useRealtimeCollaboration";
+import Sidebar from "../components/Sidebar";
+import FileTabs from "../components/editor/FileTabs";
+import CodeEditor from "../components/editor/CodeEditor";
+import CreateFileModal from "../components/modal/CreateFileModal";
+import InviteCollaboratorModal from "../components/modal/InviteCollaboratorModal";
+import ProjectSettingsModal from "../components/modal/ProjectSettingsModal";
+import Terminal from "../components/editor/Terminal";
+import ConfirmationDialog from "../components/modal/ConfirmationDialog";
+import { useProjectWorkspace } from "../hooks/useProjectWorkspace";
 import "../styles/project-view.css";
 import "../styles/editor-pane.css";
 import { resolveAssetUrl } from "../utils/url";
@@ -26,12 +22,63 @@ export default function ProjectView() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [projectIdParam]);
 
-  const [currentUser, setCurrentUser] = useState<StoredUser | null>(() =>
-    getStoredUser(),
-  );
-  const [projectMeta, setProjectMeta] = useState<Project | null>(null);
-  const [metaLoading, setMetaLoading] = useState(false);
-  const [metaError, setMetaError] = useState<string | null>(null);
+  const {
+    projectMeta,
+    projectTitle,
+    metaError,
+    isProjectOwner,
+    canEditProject,
+    readOnlyAccess,
+    readOnlyBannerVisible,
+    currentUserId,
+    files,
+    openFiles,
+    activeFile,
+    loading,
+    error,
+    openFile,
+    closeFile,
+    selectFile,
+    refresh,
+    activeFileId,
+    collaborationError,
+    collaborationStatus,
+    resyncing,
+    handleEditorChange,
+    handleCreateFile,
+    openCreateFileModal,
+    closeCreateFileModal,
+    isCreateFileOpen,
+    closeInviteModal,
+    isInviteModalOpen,
+    inviteBanner,
+    handleInviteCollaborator,
+    handleBackupFile,
+    handleBackupShortcut,
+    backupBanner,
+    openWorkspaceSettings,
+    closeWorkspaceSettings,
+    isSettingsOpen,
+    handleProjectUpdated,
+    handleRunActiveFile,
+    toggleTerminal,
+    isTerminalOpen,
+    isRunning,
+    runButtonDisabled,
+    runButtonLabel,
+    backupButtonDisabled,
+    backupButtonLabel,
+    activeFileSaving,
+    isBackingUp,
+    workspaceCollaborators,
+    onlineCollaboratorCount,
+    topbarAvatars,
+    remainingCollaborators,
+    handleRevertBackup,
+    revertingVersionId,
+    handleDeleteFile,
+  } = useProjectWorkspace(projectId);
+
   useEffect(() => {
     if (typeof document === "undefined") {
       return;
@@ -43,442 +90,30 @@ export default function ProjectView() {
     };
   }, []);
 
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const syncUser = () => {
-      setCurrentUser(getStoredUser());
-    };
-
-    window.addEventListener(AUTH_USER_EVENT, syncUser);
-    window.addEventListener("storage", syncUser);
-
-    return () => {
-      window.removeEventListener(AUTH_USER_EVENT, syncUser);
-      window.removeEventListener("storage", syncUser);
-    };
-  }, []);
-
-  const currentUserId = currentUser?.id ?? null;
-  const ownerId = projectMeta?.owner?.id ?? projectMeta?.ownerId ?? null;
-  const isProjectOwner = ownerId !== null && ownerId === currentUserId;
-  const canEditProject = useMemo(() => {
-    if (!currentUserId || !projectMeta) {
-      return false;
-    }
-
-    if (isProjectOwner) {
-      return true;
-    }
-
-    return (
-      projectMeta.collaborators?.some(
-        (collaborator) => collaborator.user?.id === currentUserId,
-      ) ?? false
-    );
-  }, [currentUserId, isProjectOwner, projectMeta]);
-  const readOnlyAccess = !canEditProject;
-  const readOnlyBannerVisible = Boolean(projectMeta) && readOnlyAccess;
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadProjectMeta = async () => {
-      if (!projectId) {
-        setProjectMeta(null);
-        setMetaError("Select a project to begin.");
-        return;
-      }
-
-      setMetaLoading(true);
-      setMetaError(null);
-
-      try {
-        const data = await fetchProjectById(projectId);
-        if (cancelled) return;
-        setProjectMeta(data);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unable to load project.";
-        setMetaError(message);
-        setProjectMeta(null);
-      } finally {
-        if (!cancelled) {
-          setMetaLoading(false);
-        }
-      }
-    };
-
-    void loadProjectMeta();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
-
-  const {
-    files,
-    openFiles,
-    activeFile,
-    loading,
-    error,
-    openFile,
-    closeFile,
-    selectFile,
-    updateDraft,
-    saveFile,
-    refresh,
-    createFile,
-    syncFileContent,
-  } = useProjectEditor(projectId, currentUserId);
-
-  const {
-    status: collaborationStatus,
-    error: collaborationError,
-    handleLocalChange: emitCollaborativeChange,
-    resyncing,
-  } = useRealtimeCollaboration({
-    activeFile,
-    canEdit: !readOnlyAccess,
-    syncFileContent,
-  });
-
-  const activeFileId = activeFile?.id ?? null;
-  const [isCreateFileOpen, setIsCreateFileOpen] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [inviteBanner, setInviteBanner] = useState<{
-    tone: "info" | "error";
-    text: string;
-  } | null>(null);
-  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
-  const [isBackingUp, setIsBackingUp] = useState(false);
-  const [backupBanner, setBackupBanner] = useState<{
-    tone: "info" | "error";
-    text: string;
-  } | null>(null);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-
-  useEffect(() => {
-    setInviteBanner(null);
-    setIsInviteModalOpen(false);
-  }, [projectId]);
-
-  useEffect(() => {
-    const handleInviteRequest = () => {
-      if (isProjectOwner) {
-        setIsInviteModalOpen(true);
-      }
-    };
-
-    window.addEventListener("invite-collaborator", handleInviteRequest);
-    return () => {
-      window.removeEventListener("invite-collaborator", handleInviteRequest);
-    };
-  }, [isProjectOwner]);
-
-  useEffect(() => {
-    setBackupBanner(null);
-  }, [activeFileId]);
-
-  const handleEditorChange = useCallback(
-    (value: string | undefined) => {
-      if (!activeFileId || readOnlyAccess) {
-        return;
-      }
-      updateDraft(activeFileId, value);
-      emitCollaborativeChange(value);
-    },
-    [activeFileId, emitCollaborativeChange, readOnlyAccess, updateDraft],
-  );
-
-  const handleCreateFile = useCallback(
-    async ({ filename, content }: { filename: string; content: string }) => {
-      if (readOnlyAccess) {
-        throw new Error(
-          "You do not have permission to create files in this project.",
-        );
-      }
-      await createFile({ filename, content });
-      setIsCreateFileOpen(false);
-    },
-    [createFile, readOnlyAccess],
-  );
-
-  const handleOpenCreateFile = useCallback(() => {
-    if (readOnlyAccess) {
-      return;
-    }
-    setIsCreateFileOpen(true);
-  }, [readOnlyAccess]);
-
-  const handleCloseInviteModal = useCallback(() => {
-    setIsInviteModalOpen(false);
-  }, []);
-
-  const handleBackupFile = useCallback(async () => {
-    if (!activeFile || readOnlyAccess) {
-      return;
-    }
-
-    setIsBackingUp(true);
-    try {
-      await createVersionBackup({
-        fileId: activeFile.id,
-        content: activeFile.draftContent ?? "",
-        userId: currentUserId ?? undefined,
-      });
-      setBackupBanner({
-        tone: "info",
-        text: `Backup created at ${new Date().toLocaleTimeString()}.`,
-      });
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Failed to create backup.";
-      setBackupBanner({
-        tone: "error",
-        text: message,
-      });
-    } finally {
-      setIsBackingUp(false);
-    }
-  }, [activeFile, currentUserId, readOnlyAccess]);
-
-  const handleBackupShortcut = useCallback(() => {
-    void handleBackupFile();
-  }, [handleBackupFile]);
-
-  const handleOpenWorkspaceSettings = useCallback(() => {
-    setIsSettingsOpen(true);
-  }, []);
-
-  const handleCloseWorkspaceSettings = useCallback(() => {
-    setIsSettingsOpen(false);
-  }, []);
-
-  const handleInviteCollaborator = useCallback(
-    async (identifier: string) => {
-      if (!projectId || !currentUserId) {
-        throw new Error(
-          "You need to be signed in to send invitations.",
-        );
-      }
-
-      try {
-        await inviteCollaborator({
-          inviterId: currentUserId,
-          projectId,
-          inviteeIdentifier: identifier,
-        });
-        setInviteBanner({
-          tone: "info",
-          text: `Invitation sent to ${identifier}.`,
-        });
-      } catch (error) {
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Failed to send invitation.";
-        throw new Error(message);
-      }
-    },
-    [currentUserId, projectId],
-  );
-
-  const handleProjectUpdated = useCallback((next: Project) => {
-    setProjectMeta(next);
-  }, []);
-
-  const handleRunActiveFile = useCallback(async () => {
-    if (!activeFile) {
-      return;
-    }
-
-    const payload = {
-      fileId: activeFile.id,
-      filename: activeFile.filename,
-      code: activeFile.draftContent ?? "",
-      fileType: activeFile.file_type,
-      language: activeFile.file_type,
-    };
-
-    setIsRunning(true);
-
-    if (
-      !readOnlyAccess &&
-      (activeFile.dirty || activeFile.saveError)
-    ) {
-      const saved = await saveFile(activeFile.id);
-      if (!saved) {
-        setIsRunning(false);
-        return;
-      }
-    }
-
-    setIsTerminalOpen(true);
-
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(
-        new CustomEvent("run-file-requested", {
-          detail: payload,
-        }),
-      );
-    }
-  }, [activeFile, readOnlyAccess, saveFile]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handleRunState = (event: Event) => {
-      const customEvent = event as CustomEvent<{ running: boolean }>;
-      setIsRunning(Boolean(customEvent.detail?.running));
-    };
-
-    window.addEventListener(
-      "run-execution-state",
-      handleRunState as EventListener,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "run-execution-state",
-        handleRunState as EventListener,
-      );
-    };
-  }, []);
-
-  const handleToggleTerminal = useCallback(() => {
-    setIsTerminalOpen((open) => !open);
-  }, []);
-
   const handleGoHome = useCallback(() => {
     navigate("/");
   }, [navigate]);
 
-  const ownerLabel = useMemo(() => {
-    const owner = projectMeta?.owner;
-    if (!owner) return null;
-    return owner.username || owner.email || `User #${owner.id}`;
-  }, [projectMeta?.owner]);
-
-  const workspaceCollaborators = useMemo<SidebarCollaborator[]>(() => {
-    const palette = ["#2563eb", "#9333ea", "#f97316", "#0ea5e9", "#ef4444"];
-    const collaboratorMap = new Map<
-      string,
-      {
-        name: string;
-        status: SidebarCollaborator["status"];
-        color: string;
-        avatarUrl?: string | null;
-      }
-    >();
-
-    const assignCollaborator = (
-      id: string,
-      name: string | null | undefined,
-      status: SidebarCollaborator["status"],
-      avatarUrl?: string | null,
-    ) => {
-      if (!name) return;
-      const existing = collaboratorMap.get(id);
-      if (existing) {
-        if (existing.status !== "online" && status === "online") {
-          existing.status = "online";
-        }
-        if (!existing.avatarUrl && avatarUrl) {
-          existing.avatarUrl = avatarUrl;
-        }
-        return;
-      }
-      const color = palette[collaboratorMap.size % palette.length];
-      collaboratorMap.set(id, { name, status, color, avatarUrl });
-    };
-
-    if (projectMeta?.owner) {
-      const ownerId = projectMeta.owner.id;
-      assignCollaborator(
-        ownerId != null ? `user-${ownerId}` : `owner-${ownerLabel ?? "unknown"}`,
-        ownerLabel,
-        currentUserId === projectMeta.owner.id ? "online" : "away",
-        projectMeta.owner.avatar_url,
-      );
-    }
-
-    (projectMeta?.collaborators ?? []).forEach((collaborator) => {
-      const collaboratorUser = collaborator.user;
-      const collaboratorUserId = collaboratorUser?.id;
-      const name =
-        collaboratorUser?.username ||
-        collaboratorUser?.email ||
-        (typeof collaboratorUser?.id === "number"
-          ? `User #${collaboratorUser.id}`
-          : null);
-      const status =
-        collaboratorUser?.id && collaboratorUser.id === currentUserId
-          ? "online"
-          : "away";
-      assignCollaborator(
-        collaboratorUserId != null
-          ? `user-${collaboratorUserId}`
-          : `collaborator-${collaborator.id}`,
-        name,
-        status,
-        collaboratorUser?.avatar_url,
-      );
-    });
-
-    if (currentUser) {
-      assignCollaborator(
-        `user-${currentUser.id}`,
-        currentUser.username || currentUser.email || `User #${currentUser.id}`,
-        "online",
-        currentUser.avatar_url,
-      );
-    }
-
-    return Array.from(collaboratorMap.entries()).map(([id, entry]) => ({
-      id,
-      name: entry.name,
-      status: entry.status,
-      color: entry.color,
-      avatarUrl: entry.avatarUrl,
-    }));
-  }, [currentUser, currentUserId, ownerLabel, projectMeta?.collaborators, projectMeta?.owner]);
-
-  const onlineCollaboratorCount = useMemo(
+  const [filePendingDeleteId, setFilePendingDeleteId] = useState<number | null>(
+    null,
+  );
+  const filePendingDelete = useMemo(
     () =>
-      workspaceCollaborators.filter(
-        (collaborator) => collaborator.status !== "offline",
-      ).length,
-    [workspaceCollaborators],
+      files.find((file) => file.id === filePendingDeleteId) ??
+      openFiles.find((file) => file.id === filePendingDeleteId),
+    [filePendingDeleteId, files, openFiles],
   );
 
-  const topbarAvatars = workspaceCollaborators.slice(0, 3);
-  const remainingCollaborators = Math.max(
-    workspaceCollaborators.length - topbarAvatars.length,
-    0,
-  );
-  const activeFileSaving = Boolean(activeFile?.saving);
-  const runButtonDisabled = !activeFile || isRunning || activeFileSaving;
-  const backupButtonDisabled =
-    readOnlyAccess || !activeFile || activeFileSaving || isBackingUp;
-  const backupButtonLabel = readOnlyAccess
-    ? "Read only"
-    : isBackingUp
-      ? "Backing up…"
-      : "Backup";
-  const runButtonLabel = isRunning ? "Running…" : "Run";
-  const projectTitle =
-    metaLoading && !projectMeta?.title
-      ? "Loading project…"
-      : projectMeta?.title ?? "Untitled project";
+  const handleConfirmDeleteFile = useCallback(async () => {
+    if (!filePendingDelete) {
+      return;
+    }
+    try {
+      await handleDeleteFile(filePendingDelete.id);
+    } finally {
+      setFilePendingDeleteId(null);
+    }
+  }, [filePendingDelete, handleDeleteFile]);
 
   return (
     <div className="project-shell">
@@ -584,7 +219,7 @@ export default function ProjectView() {
           <button
             type="button"
             className="workspace-topbar__button workspace-topbar__button--ghost"
-            onClick={handleToggleTerminal}
+            onClick={toggleTerminal}
           >
             {isTerminalOpen ? "Hide Terminal" : "Terminal"}
           </button>
@@ -593,7 +228,7 @@ export default function ProjectView() {
               type="button"
               className="workspace-topbar__icon-button"
               aria-label="Workspace settings"
-              onClick={handleOpenWorkspaceSettings}
+              onClick={openWorkspaceSettings}
             >
               ⚙
             </button>
@@ -614,8 +249,12 @@ export default function ProjectView() {
           error={error}
           onSelect={openFile}
           onRefresh={refresh}
-          onCreateFile={handleOpenCreateFile}
+          onCreateFile={openCreateFileModal}
           canCreateFiles={Boolean(projectId && currentUserId && canEditProject)}
+          onDeleteFile={
+            isProjectOwner ? (fileId) => setFilePendingDeleteId(fileId) : undefined
+          }
+          canDeleteFiles={isProjectOwner}
           projectTitle={projectTitle}
           collaborators={workspaceCollaborators}
         />
@@ -663,7 +302,7 @@ export default function ProjectView() {
             activeFileId={activeFileId}
             onSelect={selectFile}
             onClose={closeFile}
-            onCreateFile={handleOpenCreateFile}
+            onCreateFile={openCreateFileModal}
             disableCreate={!projectId || !currentUserId || !canEditProject}
           />
 
@@ -693,22 +332,44 @@ export default function ProjectView() {
 
       <CreateFileModal
         open={isCreateFileOpen}
-        onClose={() => setIsCreateFileOpen(false)}
+        onClose={closeCreateFileModal}
         onCreate={handleCreateFile}
         disabled={!projectId || !currentUserId || !canEditProject}
       />
       <ProjectSettingsModal
         open={isSettingsOpen}
-        onClose={handleCloseWorkspaceSettings}
+        onClose={closeWorkspaceSettings}
         project={projectMeta}
         canEdit={canEditProject}
+        canDeleteProject={isProjectOwner}
+        onProjectDeleted={() => {
+          closeWorkspaceSettings();
+          navigate("/");
+        }}
         activeFileId={activeFileId}
         onProjectUpdated={handleProjectUpdated}
+        onRevertBackup={handleRevertBackup}
+        revertingVersionId={revertingVersionId}
       />
       <InviteCollaboratorModal
         open={isInviteModalOpen}
-        onClose={handleCloseInviteModal}
+        onClose={closeInviteModal}
         onInvite={handleInviteCollaborator}
+      />
+      <ConfirmationDialog
+        open={Boolean(filePendingDelete)}
+        mode="confirm"
+        tone="danger"
+        title="Delete file"
+        message={
+          filePendingDelete
+            ? `Delete ${filePendingDelete.filename}? This removes it for the entire project.`
+            : ""
+        }
+        confirmLabel="Delete file"
+        cancelLabel="Keep file"
+        onCancel={() => setFilePendingDeleteId(null)}
+        onConfirm={handleConfirmDeleteFile}
       />
     </div>
   );

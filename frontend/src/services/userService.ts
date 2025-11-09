@@ -1,3 +1,4 @@
+import axios from "axios";
 import { apiClient, buildAxiosError } from "./apiClient";
 import type { StoredUser } from "../utils/auth";
 
@@ -17,9 +18,26 @@ export async function fetchUsers() {
   }
 }
 
+export type UserProfile = StoredUser & {
+  bio?: string | null;
+  created_at?: string;
+};
+
+export async function fetchUserById(userId: number) {
+  try {
+    const { data } = await apiClient.get<UserProfile>(`/users/${userId}`);
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null;
+    }
+    throw buildAxiosError("Fetch user", error);
+  }
+}
+
 export async function updateUserProfile(
   userId: number,
-  updates: { avatar_url?: string; bio?: string },
+  updates: { avatar_url?: string | null; bio?: string },
 ) {
   try {
     const { data } = await apiClient.put<{ user: StoredUser }>(

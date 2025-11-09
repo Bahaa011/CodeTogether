@@ -1,9 +1,12 @@
 .app-shell {
   min-height: 100vh;
-  background: transparent;
-  color: #cfd8ff;
+  background: var(--body-gradient);
+  color: var(--text-primary);
 }
 
 .app-main {
   padding: 1.5rem;
+  color: inherit;
 }
+
+

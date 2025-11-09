@@ -1,0 +1,191 @@
+/* 🌟 Overall layout */
+.landing-home {
+  width: min(1080px, 94vw);
+  margin: 0 auto;
+  padding: 3rem 0 5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  color: var(--text-primary);
+}
+
+/* 🦸 Hero Section */
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 2rem;
+  padding: 3rem;
+  border-radius: 32px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-hero);
+  box-shadow: var(--shadow-soft);
+  align-items: center;
+}
+
+.landing-eyebrow {
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.landing-hero h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(2.1rem, 3.5vw, 2.9rem);
+  color: var(--text-primary);
+}
+
+.landing-hero p {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  max-width: 48ch;
+}
+
+/* 🟣 CTA Buttons */
+.landing-cta-row {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.landing-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.8rem 1.8rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.landing-cta--primary {
+  background: linear-gradient(120deg, var(--accent-primary), var(--accent-secondary));
+  color: #050b1f;
+  box-shadow: 0 18px 35px rgba(56, 189, 248, 0.25);
+}
+
+.landing-cta--primary:hover {
+  transform: translateY(-2px);
+}
+
+.landing-cta--secondary {
+  border-color: var(--chip-border);
+  color: var(--text-primary);
+  background: var(--chip-bg);
+}
+
+/* 💡 Hero Card */
+.landing-hero-card {
+  border-radius: 24px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-soft);
+}
+
+.landing-hero-card p {
+  margin: 0 0 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.landing-hero-card ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* ⚡ Highlights Grid */
+.landing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+.landing-card {
+  border-radius: 20px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-card);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-soft);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.landing-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 25px rgba(99, 102, 241, 0.15);
+}
+
+.landing-card h3 {
+  margin: 0 0 0.6rem;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+}
+
+.landing-card p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* 🎯 CTA Footer Section (for consistency with About page) */
+.landing-cta-section {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  border-radius: 28px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.landing-cta-section h2 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  color: var(--text-primary);
+}
+
+.landing-cta-section p {
+  max-width: 620px;
+  margin: 0 auto 1.75rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.landing-cta-section .landing-cta-row {
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+
+/* 📱 Responsive */
+@media (max-width: 900px) {
+  .landing-hero {
+    grid-template-columns: 1fr;
+    padding: 2.25rem;
+  }
+
+  .landing-home {
+    padding: 2.25rem 0 3.5rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .landing-card,
+  .landing-hero-card {
+    padding: 1.5rem;
+  }
+
+  .landing-cta {
+    width: 100%;
+    justify-content: center;
+  }
+}

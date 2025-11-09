@@ -9,7 +9,6 @@ import {
 } from 'typeorm';
 import { Project } from '../project/project.entity';
 import { User } from '../user/user.entity';
-import { Session } from '../session/session.entity';
 import { Version } from '../version/version.entity';
 import { Comment } from '../comment/comment.entity';
 
@@ -39,9 +38,6 @@ export class File {
 
   @ManyToOne(() => User, (user) => user.files, { onDelete: 'SET NULL' })
   uploader: User;
-
-  @OneToMany(() => Session, (session) => session.file)
-  sessions: Session[];
 
   @OneToMany(() => Version, (version) => version.file)
   versions: Version[];

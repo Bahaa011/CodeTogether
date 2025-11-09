@@ -1,220 +1,64 @@
-import { useCallback, useEffect, useState } from "react";
-import { Navigate, useLocation } from "react-router-dom";
-import { fetchProfile } from "../services/authService";
-import {
-  fetchProjectCount,
-  fetchProjectsByOwner,
-  type Project,
-} from "../services/projectService";
-import {
-  fetchCollaborationCount,
-  fetchCollaborationsByUser,
-  type UserCollaboration,
-} from "../services/collaboratorService";
-import { updateUserProfile, uploadUserAvatar } from "../services/userService";
-import {
-  AUTH_TOKEN_EVENT,
-  getStoredUser,
-  getToken,
-  removeToken,
-  setRole,
-  setStoredUser,
-  type StoredUser,
-} from "../utils/auth";
-import EditProfileModal from "../components/EditProfileModal";
+import { useCallback, useState } from "react";
+import { Navigate, useParams, useLocation } from "react-router-dom";
 import { resolveAssetUrl } from "../utils/url";
+import { useProfileData, useUserProfileData } from "../hooks/useProfileData";
+import EditProfileModal from "../components/modal/EditProfileModal";
+import { type Project } from "../services/projectService";
 import "../styles/profile.css";
 
+const getProjectTags = (project?: Project) =>
+  project?.tags?.map((tag) => tag?.tag).filter(Boolean) ?? [];
+
 export default function Profile() {
+  const { userId } = useParams<{ userId?: string }>();
   const location = useLocation();
-  const [hasToken, setHasToken] = useState(() => Boolean(getToken()));
-  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
-  const [loading, setLoading] = useState(() => hasToken && !user);
-  const [error, setError] = useState<string | null>(null);
+  const viewingOther = Boolean(userId);
+
+  // Choose which hook to use
+  const profileData = viewingOther
+    ? useUserProfileData(Number(userId))
+    : useProfileData();
+
+  // Shared fields
+  const {
+    user,
+    loading,
+    error,
+    stats,
+    statsLoading,
+    projects,
+    projectsLoading,
+    projectsError,
+    collaborations,
+    collaborationsLoading,
+    collaborationsError,
+  } = profileData;
+
+  // Auth-only fields (exist only for own profile)
+  const hasToken =
+    "hasToken" in profileData ? profileData.hasToken : undefined;
+  const handleLogout =
+    "handleLogout" in profileData ? profileData.handleLogout : undefined;
+  const handleSaveProfile =
+    "handleSaveProfile" in profileData ? profileData.handleSaveProfile : undefined;
+  const handleUploadAvatar =
+    "handleUploadAvatar" in profileData ? profileData.handleUploadAvatar : undefined;
+
   const [activeTab, setActiveTab] = useState<"projects" | "collaborations">(
-    "projects",
+    "projects"
   );
-  const [stats, setStats] = useState({ projects: 0, collaborations: 0 });
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [statsError, setStatsError] = useState<string | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [projectsError, setProjectsError] = useState<string | null>(null);
-  const [collaborations, setCollaborations] = useState<UserCollaboration[]>([]);
-  const [collaborationsLoading, setCollaborationsLoading] = useState(false);
-  const [collaborationsError, setCollaborationsError] = useState<
-    string | null
-  >(null);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
 
-  useEffect(() => {
-    const syncTokenState = () => {
-      const tokenPresent = Boolean(getToken());
-      setHasToken(tokenPresent);
-      if (!tokenPresent) {
-        setUser(null);
-        setStoredUser(null);
-        setRole(null);
-      }
-    };
-
-    window.addEventListener(AUTH_TOKEN_EVENT, syncTokenState);
-    window.addEventListener("storage", syncTokenState);
-
-    return () => {
-      window.removeEventListener(AUTH_TOKEN_EVENT, syncTokenState);
-      window.removeEventListener("storage", syncTokenState);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hasToken) {
-      return;
+  const handleContact = useCallback(() => {
+    if (user?.email) {
+      window.open(`mailto:${user.email}`, "_blank");
     }
+  }, [user?.email]);
 
-    let cancelled = false;
-    const cachedUser = getStoredUser();
-    if (!cachedUser) {
-      setLoading(true);
-    }
-
-    const loadProfile = async () => {
-      try {
-        const profile = await fetchProfile();
-        if (cancelled) return;
-        setUser(profile);
-        setStoredUser(profile);
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unable to load profile.";
-        setError(message);
-        removeToken();
-        setStoredUser(null);
-        setRole(null);
-        setHasToken(false);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadProfile();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasToken]);
-
-  useEffect(() => {
-    if (!hasToken || !user?.id) {
-      setActiveTab("projects");
-      setStats({ projects: 0, collaborations: 0 });
-      setProjects([]);
-      setCollaborations([]);
-      return;
-    }
-
-    let cancelled = false;
-    setStatsLoading(true);
-    setStatsError(null);
-
-    setProjectsLoading(true);
-    setProjectsError(null);
-
-    setCollaborationsLoading(true);
-    setCollaborationsError(null);
-    setCollaborations([]);
-
-    const load = async () => {
-      try {
-        const [
-          projectsCount,
-          collaborationsCount,
-          ownedProjects,
-          userCollaborations,
-        ] = await Promise.all([
-          fetchProjectCount(user.id),
-          fetchCollaborationCount(user.id),
-          fetchProjectsByOwner(user.id),
-          fetchCollaborationsByUser(user.id),
-        ]);
-        if (cancelled) return;
-        setStats({
-          projects: projectsCount,
-          collaborations: collaborationsCount,
-        });
-        setProjects(ownedProjects);
-        setCollaborations(userCollaborations);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unable to load statistics.";
-        setStatsError(message);
-        setStats({ projects: 0, collaborations: 0 });
-        setProjectsError(message);
-        setProjects([]);
-        setCollaborationsError(message);
-        setCollaborations([]);
-      } finally {
-        if (!cancelled) {
-          setStatsLoading(false);
-          setProjectsLoading(false);
-          setCollaborationsLoading(false);
-        }
-      }
-    };
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasToken, user?.id]);
-
-  const handleLogout = () => {
-    removeToken();
-    setStoredUser(null);
-    setRole(null);
-    setUser(null);
-    setHasToken(false);
-  };
-
-  const handleSaveProfile = useCallback(
-    async (updates: { bio?: string; avatar_url?: string }) => {
-      if (!user?.id) {
-        throw new Error("Unable to update profile without a user ID.");
-      }
-      const updatedUser = await updateUserProfile(user.id, updates);
-      const mergedUser = { ...user, ...updatedUser };
-      setUser(mergedUser);
-      setStoredUser(mergedUser);
-    },
-    [user],
-  );
-
-  const handleUploadAvatar = useCallback(
-    async (file: File) => {
-      if (!user?.id) {
-        throw new Error("Unable to upload avatar without a user ID.");
-      }
-      const updatedUser = await uploadUserAvatar(user.id, file);
-      setUser(updatedUser);
-      setStoredUser(updatedUser);
-      return updatedUser.avatar_url ?? undefined;
-    },
-    [user],
-  );
-
-  if (!hasToken) {
+  // Redirect if not logged in and viewing own profile
+  if (!viewingOther && !hasToken) {
     return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location.pathname }}
-      />
+      <Navigate to="/login" replace state={{ from: location.pathname }} />
     );
   }
 
@@ -222,195 +66,193 @@ export default function Profile() {
     return (
       <div className="profile-page">
         <section className="profile-status-card">
-          <p className="profile-status-text">Loading profile...</p>
+          <p className="profile-status-text">Loading profile…</p>
         </section>
       </div>
     );
   }
 
-  if (error && !user) {
+  if (error || !user) {
     return (
       <div className="profile-page">
         <section className="profile-status-card">
-          <p className="profile-status-text">{error}</p>
+          <p className="profile-status-text">
+            {error ?? "Unable to load profile."}
+          </p>
         </section>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   const avatarLetter =
-    user.username?.[0]?.toUpperCase() ?? user.email[0]?.toUpperCase() ?? "U";
+    user.username?.[0]?.toUpperCase() ??
+    user.email?.[0]?.toUpperCase() ??
+    "U";
   const avatarImageSrc = resolveAssetUrl(user.avatar_url);
   const bioText =
-    typeof user.bio === "string" && user.bio.trim().length > 0
+    user?.bio?.trim() && user.bio.trim().length > 0
       ? user.bio.trim()
-      : "This user hasn't added a bio yet.";
-  const memberSince =
-    user.created_at != null
-      ? new Date(user.created_at).toLocaleString(undefined, { month: "short", year: "numeric" })
-      : null;
+      : "This user hasn’t added a bio yet.";
+  const memberSince = user.created_at
+    ? new Date(user.created_at).toLocaleString(undefined, {
+        month: "short",
+        year: "numeric",
+      })
+    : null;
 
   const metrics = [
-    {
-      key: "projects",
-      title: "Total Projects",
-      value: statsLoading ? "..." : stats.projects,
-      footnote: statsLoading ? "" : "+0 this month",
-    },
-    {
-      key: "collaborations",
-      title: "Collaborations",
-      value: statsLoading ? "..." : stats.collaborations,
-      footnote: statsLoading ? "" : "Keep building together",
-    },
-    {
-      key: "placeholder",
-      title: "Coming Soon",
-      value: "--",
-      footnote: "More insights on the way",
-    },
-  ];
+  {
+    key: "projects",
+    title: "Total Projects",
+    value: statsLoading ? "…" : stats.projects,
+    footnote: statsLoading
+      ? ""
+      : viewingOther
+      ? "+0 this month" // You can customize this later if you want user-specific
+      : "+0 this month",
+  },
+  {
+    key: "collaborations",
+    title: "Collaborations",
+    value: statsLoading ? "…" : stats.collaborations,
+    footnote: statsLoading
+      ? ""
+      : "Keep building together",
+  },
+  {
+    key: "sessions",
+    title: "Deep Work Sessions",
+    value: statsLoading ? "…" : stats.sessions,
+    footnote: statsLoading
+      ? ""
+      : "15+ min focused collaborations",
+  },
+];
+
 
   const renderProjectsPanel = () => {
-    if (projectsLoading) {
-      return (
-        <p className="profile-panel-placeholder">
-          Loading your projects…
-        </p>
-      );
-    }
-
-    if (projectsError) {
+    if (projectsLoading)
+      return <p className="profile-panel-placeholder">Loading projects…</p>;
+    if (projectsError)
       return <p className="profile-panel-placeholder">{projectsError}</p>;
-    }
-
-    if (projects.length === 0) {
+    if (projects.length === 0)
       return (
         <p className="profile-panel-placeholder">
-          Projects you create will appear here with activity snapshots and quick access.
+          {viewingOther
+            ? `${user.username ?? "This user"} hasn’t published any projects yet.`
+            : "Projects you create will appear here."}
         </p>
       );
-    }
 
     return (
       <ul className="profile-project-list">
-        {projects.map((project) => (
-          <li key={project.id} className="profile-project-item">
-            <a className="profile-project-link" href={`/projects/${project.id}`}>
-              <div className="profile-project-heading">
-                <h3 className="profile-project-title">{project.title}</h3>
-                <span
-                  className={
-                    project.is_public
-                      ? "profile-project-badge profile-project-badge--public"
-                      : "profile-project-badge"
-                  }
-                >
-                  {project.is_public ? "Public" : "Private"}
+        {projects.map((project) => {
+          const tags = getProjectTags(project);
+          return (
+            <li key={project.id} className="profile-project-item">
+              <a href={`/projects/${project.id}`} className="profile-project-link">
+                <div className="profile-project-heading">
+                  <h3 className="profile-project-title">{project.title}</h3>
+                  <span
+                    className={
+                      project.is_public
+                        ? "profile-project-badge profile-project-badge--public"
+                        : "profile-project-badge"
+                    }
+                  >
+                    {project.is_public ? "Public" : "Private"}
+                  </span>
+                </div>
+                <p className="profile-project-description">
+                  {project.description || "No description provided."}
+                </p>
+                {tags.length > 0 && (
+                  <div className="profile-project-tags">
+                    {tags.map((tag) => (
+                      <span key={tag} className="profile-project-tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <span className="profile-project-meta">
+                  Updated{" "}
+                  {project.updated_at
+                    ? new Date(project.updated_at).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })
+                    : "recently"}
                 </span>
-              </div>
-              <p className="profile-project-description">
-                {project.description || "No description provided."}
-              </p>
-              <span className="profile-project-meta">
-                Updated{" "}
-                {project.updated_at
-                  ? new Date(project.updated_at).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })
-                  : "recently"}
-              </span>
-            </a>
-          </li>
-        ))}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     );
   };
 
   const renderCollaborationsPanel = () => {
-    if (collaborationsLoading) {
+    if (collaborationsLoading)
       return (
         <p className="profile-panel-placeholder">
           Loading collaborations…
         </p>
       );
-    }
-
-    if (collaborationsError) {
-      return <p className="profile-panel-placeholder">{collaborationsError}</p>;
-    }
-
-    if (collaborations.length === 0) {
+    if (collaborationsError)
+      return (
+        <p className="profile-panel-placeholder">{collaborationsError}</p>
+      );
+    if (collaborations.length === 0)
       return (
         <p className="profile-panel-placeholder">
-          Collaborations you join will appear here with shared project details and owners.
+          {viewingOther
+            ? "Collaborations will appear once this user joins shared projects."
+            : "Collaborations you join will appear here."}
         </p>
       );
-    }
 
     return (
       <ul className="profile-project-list">
-        {collaborations.map((collaboration) => {
-          const project = collaboration.project;
-          const projectTitle = project?.title ?? "Untitled project";
-          const projectDescription =
-            project?.description && project.description.trim().length > 0
-              ? project.description
-              : "No description provided.";
-          const projectHref = project?.id ? `/projects/${project.id}` : "#";
-          const isPublic = project?.is_public === true;
-          const badgeClass = isPublic
-            ? "profile-project-badge profile-project-badge--public"
-            : "profile-project-badge";
-          const badgeLabel = project
-            ? isPublic
-              ? "Public"
-              : "Private"
-            : "Unavailable";
-          const joinedAt = collaboration.added_at
-            ? new Date(collaboration.added_at).toLocaleString(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              })
-            : null;
-          const ownerLabel =
-            project?.owner?.username ||
-            project?.owner?.email ||
-            (project?.ownerId ? `User #${project.ownerId}` : null);
-          const metaParts = [
-            `Role: ${collaboration.role ?? "Collaborator"}`,
-            joinedAt ? `Joined ${joinedAt}` : "Joined recently",
-          ];
-          if (ownerLabel) {
-            metaParts.push(`Owner: ${ownerLabel}`);
-          }
-
+        {collaborations.map((collab) => {
+          const project = collab.project;
+          const tags = getProjectTags(project);
           return (
-            <li key={collaboration.id} className="profile-project-item">
+            <li key={collab.id} className="profile-project-item">
               <a
+                href={project?.id ? `/projects/${project.id}` : "#"}
                 className={
                   project?.id
                     ? "profile-project-link"
                     : "profile-project-link profile-project-link--disabled"
                 }
-                href={projectHref}
-                aria-disabled={project?.id ? undefined : true}
               >
                 <div className="profile-project-heading">
-                  <h3 className="profile-project-title">{projectTitle}</h3>
-                  <span className={badgeClass}>{badgeLabel}</span>
+                  <h3 className="profile-project-title">
+                    {project?.title ?? "Untitled project"}
+                  </h3>
+                  <span
+                    className={
+                      project?.is_public
+                        ? "profile-project-badge profile-project-badge--public"
+                        : "profile-project-badge"
+                    }
+                  >
+                    {project?.is_public ? "Public" : "Private"}
+                  </span>
                 </div>
                 <p className="profile-project-description">
-                  {projectDescription}
+                  {project?.description ?? "No description provided."}
                 </p>
-                <span className="profile-project-meta">
-                  {metaParts.join(" • ")}
-                </span>
+                {tags.length > 0 && (
+                  <div className="profile-project-tags">
+                    {tags.map((tag) => (
+                      <span key={tag} className="profile-project-tag">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </a>
             </li>
           );
@@ -427,7 +269,7 @@ export default function Profile() {
             {avatarImageSrc ? (
               <img
                 src={avatarImageSrc}
-                alt={`${user.username} avatar`}
+                alt={`${user.username ?? user.email} avatar`}
                 className="profile-hero-image"
               />
             ) : (
@@ -435,35 +277,60 @@ export default function Profile() {
             )}
             <span className="profile-hero-status" aria-hidden />
           </div>
+
           <div className="profile-hero-details">
             <div className="profile-hero-heading">
-              <h1 className="profile-hero-name">{user.username}</h1>
-              <span className="profile-hero-email">{user.email}</span>
+              <h1 className="profile-hero-name">
+                {user.username ?? user.email}
+              </h1>
+              {user.email && (
+                <span className="profile-hero-email">{user.email}</span>
+              )}
             </div>
             <p className="profile-hero-subtitle">{bioText}</p>
             <div className="profile-hero-meta">
               {memberSince && (
                 <>
-                  <span className="profile-hero-meta-item">Member since {memberSince}</span>
+                  <span className="profile-hero-meta-item">
+                    Member since {memberSince}
+                  </span>
                   <span className="profile-hero-meta-bullet" />
                 </>
               )}
-              <span className="profile-hero-meta-item profile-hero-meta-online">Online</span>
+              <span className="profile-hero-meta-item profile-hero-meta-online">
+                {viewingOther ? "Active" : "Online"}
+              </span>
             </div>
           </div>
         </div>
 
         <div className="profile-hero-actions">
-          <button
-            type="button"
-            className="profile-hero-button"
-            onClick={() => setIsEditProfileOpen(true)}
-          >
-            Edit Profile
-          </button>
-          <button type="button" className="profile-hero-button profile-hero-button--ghost" onClick={handleLogout}>
-            Log out
-          </button>
+          {viewingOther ? (
+            <button
+              type="button"
+              className="profile-hero-button"
+              onClick={handleContact}
+            >
+              Contact
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="profile-hero-button"
+                onClick={() => setIsEditProfileOpen(true)}
+              >
+                Edit Profile
+              </button>
+              <button
+                type="button"
+                className="profile-hero-button profile-hero-button--ghost"
+                onClick={handleLogout}
+              >
+                Log out
+              </button>
+            </>
+          )}
         </div>
       </section>
 
@@ -472,22 +339,18 @@ export default function Profile() {
           <article key={metric.key} className="profile-metric-card">
             <span className="profile-metric-value">{metric.value}</span>
             <h2 className="profile-metric-title">{metric.title}</h2>
-            {metric.footnote && <p className="profile-metric-footnote">{metric.footnote}</p>}
+            {metric.footnote && (
+              <p className="profile-metric-footnote">{metric.footnote}</p>
+            )}
           </article>
         ))}
       </section>
-      {statsError && !statsLoading && (
-        <p className="profile-metric-error" role="status">
-          {statsError}
-        </p>
-      )}
 
       <section className="profile-sections">
         <article className="profile-panel profile-panel--tabs">
           <header className="profile-tab-header">
-            <nav className="profile-tab-bar" aria-label="Project panels">
+            <nav className="profile-tab-bar">
               <button
-                type="button"
                 className={
                   activeTab === "projects"
                     ? "profile-tab-button profile-tab-button--active"
@@ -495,11 +358,10 @@ export default function Profile() {
                 }
                 onClick={() => setActiveTab("projects")}
               >
-                <span>My Projects</span>
+                <span>Projects</span>
                 <span className="profile-tab-count">{stats.projects}</span>
               </button>
               <button
-                type="button"
                 className={
                   activeTab === "collaborations"
                     ? "profile-tab-button profile-tab-button--active"
@@ -526,19 +388,23 @@ export default function Profile() {
             <h2 className="profile-panel-title">Recent Activity</h2>
           </header>
           <p className="profile-panel-placeholder">
-            Keep building! Your latest commits, merges, and comments will surface here once available.
+            {viewingOther
+              ? "Recent commits and notes for this user will appear here."
+              : "Keep building! Your recent commits and merges will surface here soon."}
           </p>
         </article>
       </section>
 
-      <EditProfileModal
-        open={isEditProfileOpen}
-        onClose={() => setIsEditProfileOpen(false)}
-        initialBio={user.bio}
-        initialAvatarUrl={user.avatar_url}
-        onSave={handleSaveProfile}
-        onUploadAvatar={handleUploadAvatar}
-      />
+      {!viewingOther && (
+        <EditProfileModal
+          open={isEditProfileOpen}
+          onClose={() => setIsEditProfileOpen(false)}
+          initialBio={user.bio ?? ""}
+          initialAvatarUrl={user.avatar_url}
+          onSave={handleSaveProfile!}
+          onUploadAvatar={handleUploadAvatar!}
+        />
+      )}
     </div>
   );
 }

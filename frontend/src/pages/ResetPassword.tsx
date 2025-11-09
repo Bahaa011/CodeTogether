@@ -1,6 +1,5 @@
-import { type FormEvent, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { resetPassword } from "../services/authService";
+import { useResetPasswordForm } from "../hooks/useAuthForms";
 import "../styles/auth.css";
 
 export default function ResetPassword() {
@@ -8,56 +7,22 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   const token = searchParams.get("token") ?? "";
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(
-    token ? null : "Reset token missing. Open the link from your email again.",
-  );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (isSubmitting) return;
-
-    const trimmedToken = token.trim();
-    if (!trimmedToken) {
-      setError("Reset token missing. Open the link from your email again.");
-      return;
-    }
-
-    if (!password) {
-      setError("Please enter a new password.");
-      return;
-    }
-
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters long.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError(null);
-
-    try {
-      const message = await resetPassword(trimmedToken, password);
-      setIsSubmitting(false);
+  const {
+    password,
+    setPassword,
+    confirmPassword,
+    setConfirmPassword,
+    error,
+    isSubmitting,
+    handleSubmit,
+  } = useResetPasswordForm({
+    token,
+    onSuccess: (message) =>
       navigate("/login", {
         replace: true,
         state: { resetSuccess: message },
-      });
-      return;
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to reset password right now.";
-      setError(message);
-      setIsSubmitting(false);
-    }
-  };
+      }),
+  });
 
   const handleBackToLogin = () => {
     navigate("/login");

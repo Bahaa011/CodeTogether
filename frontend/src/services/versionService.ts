@@ -5,6 +5,7 @@ export type CreateVersionInput = {
   content: string;
   userId?: number | null;
   sessionId?: number | null;
+  label?: string | null;
 };
 
 export type BackupUser = {
@@ -20,6 +21,16 @@ export type VersionRecord = {
   content: string;
   created_at: string;
   user?: BackupUser | null;
+  label?: string | null;
+};
+
+export type FileRecord = {
+  id: number;
+  filename: string;
+  file_type: string;
+  content: string;
+  project?: { id: number };
+  updated_at?: string;
 };
 
 export async function createVersionBackup(input: CreateVersionInput) {
@@ -29,10 +40,20 @@ export async function createVersionBackup(input: CreateVersionInput) {
       user_id: input.userId ?? null,
       session_id: input.sessionId ?? null,
       content: input.content,
+      label: input.label ?? null,
     });
     return response.data;
   } catch (error) {
     throw buildAxiosError("Create backup", error);
+  }
+}
+
+export async function revertVersionBackup(versionId: number) {
+  try {
+    const response = await apiClient.post<FileRecord>(`/versions/${versionId}/revert`);
+    return response.data;
+  } catch (error) {
+    throw buildAxiosError("Revert backup", error);
   }
 }
 

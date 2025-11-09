@@ -16,6 +16,7 @@ export class VersionController {
       createDto.user_id,
       createDto.session_id,
       createDto.content,
+      createDto.label,
     );
   }
 
@@ -32,5 +33,10 @@ export class VersionController {
   @Get(':id')
   async getVersionById(@Param('id') id: number) {
     return await this.versionService.getVersionById(id);
+  }
+
+  @Post(':id/revert')
+  async revertVersion(@Param('id') id: number) {
+    return await this.versionService.revertVersion(Number(id));
   }
 }

@@ -50,3 +50,11 @@ export async function createProjectFile(payload: CreateFilePayload) {
     throw buildAxiosError("Create file", error);
   }
 }
+
+export async function deleteProjectFile(fileId: number) {
+  try {
+    await apiClient.delete(`/files/${fileId}`);
+  } catch (error) {
+    throw buildAxiosError("Delete file", error);
+  }
+}

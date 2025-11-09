@@ -9,9 +9,6 @@ export class CreateSessionDto {
   @Min(1)
   project_id: number;
 
-  @IsInt()
-  @Min(1)
-  file_id: number;
 }
 
 export class EndSessionDto {

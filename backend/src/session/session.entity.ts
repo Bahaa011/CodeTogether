@@ -8,7 +8,6 @@ import {
 } from 'typeorm';
 import { User } from '../user/user.entity';
 import { Project } from '../project/project.entity';
-import { File } from '../file/file.entity';
 import { Version } from '../version/version.entity';
 
 @Entity('sessions')
@@ -18,9 +17,6 @@ export class Session {
 
   @ManyToOne(() => Project, (project) => project.sessions, { onDelete: 'CASCADE' })
   project: Project;
-
-  @ManyToOne(() => File, (file) => file.sessions, { onDelete: 'SET NULL' })
-  file: File;
 
   @ManyToOne(() => User, (user) => user.sessions, { onDelete: 'CASCADE' })
   user: User;
@@ -34,7 +30,11 @@ export class Session {
   @Column({ type: 'timestamp', nullable: true })
   ended_at: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({
+    type: 'timestamp',
+    nullable: true,
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   last_activity: Date;
 
   @Column({ unique: true })

@@ -1,168 +1,176 @@
-import { useEffect, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import "../styles/settings.css";
-import { fetchProfile, toggleMfa } from "../services/authService";
-import { getToken, getStoredUser, setStoredUser, type StoredUser } from "../utils/auth";
+import { useTheme } from "../hooks/useTheme";
+import { useSettingsPage } from "../hooks/useSettingsPage";
 
 export default function Settings() {
-  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
-  const [loading, setLoading] = useState(() => Boolean(getToken()) && !user);
-  const [error, setError] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  const [mfaBusy, setMfaBusy] = useState(false);
+  const {
+    user,
+    loading,
+    error,
+    feedback,
+    mfaBusy,
+    handleToggleMfa,
+    isAuthenticated,
+  } = useSettingsPage();
+  const { theme, setTheme } = useTheme();
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!getToken()) {
-      setLoading(false);
-      return;
-    }
-
-    const loadProfile = async () => {
-      try {
-        const profile = await fetchProfile();
-        if (cancelled) return;
-        setUser(profile);
-        setStoredUser(profile);
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Unable to load your settings right now.";
-        setError(message);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadProfile();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleToggleMfa = async () => {
-    if (!user || mfaBusy) return;
-    setFeedback(null);
-    setError(null);
-    setMfaBusy(true);
-
-    try {
-      const updated = await toggleMfa(!user.mfa_enabled);
-      setUser(updated);
-      setStoredUser(updated);
-      setFeedback(
-        updated.mfa_enabled
-          ? "Multi-factor authentication is now enabled. We'll email you a 6-digit code when you sign in."
-          : "Multi-factor authentication has been disabled.",
-      );
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to update MFA right now.";
-      setError(message);
-    } finally {
-      setMfaBusy(false);
-    }
+  const handleThemeSelect = (value: "light" | "dark") => {
+    setTheme(value);
   };
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <section className="settings-card">
-          <p className="settings-card-text">Loading your preferences…</p>
-        </section>
-      );
-    }
-
-    if (!getToken()) {
-      return (
-        <section className="settings-card">
-          <h2 className="settings-card-title">Please sign in</h2>
+  const renderAppearanceCard = () => (
+    <section className="settings-card settings-card--appearance" aria-labelledby="appearance-settings-heading">
+      <div className="settings-card-eyebrow">Display</div>
+      <div className="settings-card-heading">
+        <div>
+          <h2 id="appearance-settings-heading" className="settings-card-title">
+            Appearance
+          </h2>
           <p className="settings-card-text">
-            You need to be signed in to update account settings. Head to the login page to continue.
+            Instantly switch between light and dark themes. Your choice stays synced per device.
           </p>
-        </section>
+        </div>
+        <span className="settings-chip">New</span>
+      </div>
+
+      <div className="appearance-toggle" role="group" aria-label="Theme options">
+        <button
+          type="button"
+          className={theme === "light" ? "appearance-toggle__option appearance-toggle__option--active" : "appearance-toggle__option"}
+          onClick={() => handleThemeSelect("light")}
+          aria-pressed={theme === "light"}
+        >
+          <Sun size={18} />
+          <span>Light</span>
+        </button>
+        <button
+          type="button"
+          className={theme === "dark" ? "appearance-toggle__option appearance-toggle__option--active" : "appearance-toggle__option"}
+          onClick={() => handleThemeSelect("dark")}
+          aria-pressed={theme === "dark"}
+        >
+          <Moon size={18} />
+          <span>Dark</span>
+        </button>
+      </div>
+
+      <div className="appearance-preview" data-preview-theme={theme}>
+        <div className="appearance-preview__panel appearance-preview__panel--primary">
+          <div className="appearance-preview__bar" />
+          <div className="appearance-preview__line appearance-preview__line--long" />
+          <div className="appearance-preview__line appearance-preview__line--medium" />
+          <div className="appearance-preview__line appearance-preview__line--short" />
+        </div>
+        <div className="appearance-preview__panel appearance-preview__panel--secondary">
+          <div className="appearance-preview__line appearance-preview__line--medium" />
+          <div className="appearance-preview__line appearance-preview__line--short" />
+        </div>
+      </div>
+    </section>
+  );
+
+  const renderGeneralCard = () => (
+    <section className="settings-card" aria-labelledby="general-settings-heading">
+      <div className="settings-card-eyebrow">Workspace</div>
+      <h2 id="general-settings-heading" className="settings-card-title">
+        General
+      </h2>
+      <p className="settings-card-text">
+        Control the essentials for projects, personal info, and how CodeTogether keeps you in the loop.
+      </p>
+      <ul className="settings-list">
+        <li className="settings-list-item">
+          <div>
+            <p className="settings-item-title">Profile details</p>
+            <p className="settings-item-description">
+              Edit your bio, avatar, and username from the profile page.
+            </p>
+          </div>
+          <button type="button" className="settings-action" disabled>
+            Manage
+          </button>
+        </li>
+        <li className="settings-list-item">
+          <div>
+            <p className="settings-item-title">Project notifications</p>
+            <p className="settings-item-description">
+              Choose how you want updates delivered.
+            </p>
+          </div>
+          <button type="button" className="settings-action" disabled>
+            Configure
+          </button>
+        </li>
+      </ul>
+    </section>
+  );
+
+  const renderPrivacyCard = () => (
+    <section className="settings-card" aria-labelledby="privacy-settings-heading">
+      <div className="settings-card-eyebrow">Security</div>
+      <h2 id="privacy-settings-heading" className="settings-card-title">
+        Privacy &amp; Security
+      </h2>
+      <p className="settings-card-text">
+        Keep your workstation safe with MFA and control who can see your footprint.
+      </p>
+      <ul className="settings-list">
+        <li className="settings-list-item">
+          <div>
+            <p className="settings-item-title">Multi-factor authentication</p>
+            <p className="settings-item-description">
+              {loading
+                ? "Checking your MFA status…"
+                : user?.mfa_enabled
+                  ? "Enabled — we’ll email you a 6-digit code when you sign in."
+                  : "Disabled — add a second verification step for your logins."}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="settings-action"
+            onClick={handleToggleMfa}
+            disabled={mfaBusy || loading}
+          >
+            {user?.mfa_enabled ? "Disable" : "Enable"}
+          </button>
+        </li>
+        <li className="settings-list-item">
+          <div>
+            <p className="settings-item-title">Visibility preferences</p>
+            <p className="settings-item-description">
+              Choose how your activity shows up across CodeTogether.
+            </p>
+          </div>
+          <button type="button" className="settings-action" disabled>
+            Adjust
+          </button>
+        </li>
+      </ul>
+    </section>
+  );
+
+  const renderContent = () => {
+    if (!isAuthenticated) {
+      return (
+        <div className="settings-grid settings-grid--adaptive">
+          {renderAppearanceCard()}
+          <section className="settings-card settings-card--placeholder">
+            <h2 className="settings-card-title">Sign in to manage account</h2>
+            <p className="settings-card-text">
+              You need to be signed in to update account settings. Head to the login page to continue.
+            </p>
+          </section>
+        </div>
       );
     }
 
     return (
-      <div className="settings-grid">
-        <section className="settings-card" aria-labelledby="general-settings-heading">
-          <h2 id="general-settings-heading" className="settings-card-title">
-            General
-          </h2>
-          <p className="settings-card-text">
-            Control basic account details like your profile information and notification preferences.
-          </p>
-          <ul className="settings-list">
-            <li className="settings-list-item">
-              <div>
-                <p className="settings-item-title">Profile details</p>
-                <p className="settings-item-description">
-                  Edit your bio, avatar, and username from the profile page.
-                </p>
-              </div>
-              <button type="button" className="settings-action" disabled>
-                Manage
-              </button>
-            </li>
-            <li className="settings-list-item">
-              <div>
-                <p className="settings-item-title">Project notifications</p>
-                <p className="settings-item-description">
-                  Choose how you want updates delivered.
-                </p>
-              </div>
-              <button type="button" className="settings-action" disabled>
-                Configure
-              </button>
-            </li>
-          </ul>
-        </section>
-
-        <section className="settings-card" aria-labelledby="privacy-settings-heading">
-          <h2 id="privacy-settings-heading" className="settings-card-title">
-            Privacy &amp; Security
-          </h2>
-          <p className="settings-card-text">
-            Keep your account secure with multi-factor authentication and manage who can view your activity.
-          </p>
-          <ul className="settings-list">
-            <li className="settings-list-item">
-              <div>
-                <p className="settings-item-title">Multi-factor authentication</p>
-                <p className="settings-item-description">
-                  {user?.mfa_enabled
-                    ? "Enabled — we’ll email you a 6-digit code when you sign in."
-                    : "Disabled — add a second verification step for your logins."}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="settings-action"
-                onClick={handleToggleMfa}
-                disabled={mfaBusy}
-              >
-                {user?.mfa_enabled ? "Disable" : "Enable"}
-              </button>
-            </li>
-            <li className="settings-list-item">
-              <div>
-                <p className="settings-item-title">Visibility preferences</p>
-                <p className="settings-item-description">
-                  Choose how your activity shows up across CodeTogether.
-                </p>
-              </div>
-              <button type="button" className="settings-action" disabled>
-                Adjust
-              </button>
-            </li>
-          </ul>
-        </section>
+      <div className="settings-grid settings-grid--adaptive">
+        {renderAppearanceCard()}
+        {renderGeneralCard()}
+        {renderPrivacyCard()}
       </div>
     );
   };
@@ -170,10 +178,17 @@ export default function Settings() {
   return (
     <div className="settings-page">
       <header className="settings-header">
-        <h1 className="settings-title">Account Settings</h1>
-        <p className="settings-subtitle">
-          Review your general preferences and privacy controls in one place.
-        </p>
+        <div>
+          <p className="settings-eyebrow">Control Center</p>
+          <h1 className="settings-title">Account Settings</h1>
+          <p className="settings-subtitle">
+            Review your general preferences, privacy controls, and appearance in one place.
+          </p>
+        </div>
+        <div className="settings-header-card">
+          <p className="settings-header-metric">Theme</p>
+          <p className="settings-header-value">{theme === "dark" ? "Dark" : "Light"} mode</p>
+        </div>
       </header>
 
       {error && (

@@ -1,7 +1,5 @@
-import { type FormEvent, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { registerUser } from "../services/authService";
-import { getToken } from "../utils/auth";
+import { useRegisterForm } from "../hooks/useAuthForms";
 import "../styles/auth.css";
 
 type LocationState = {
@@ -11,42 +9,30 @@ type LocationState = {
 export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
-
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const hasToken = Boolean(getToken());
-
   const redirectPath = (location.state as LocationState | null)?.from || "/";
+
+  const {
+    hasToken,
+    username,
+    setUsername,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    confirmPassword,
+    setConfirmPassword,
+    error,
+    isSubmitting,
+    handleSubmit,
+  } = useRegisterForm({
+    redirectPath,
+    onRegistered: () =>
+      navigate("/login", { replace: true, state: { from: redirectPath } }),
+  });
 
   if (hasToken) {
     return <Navigate to={redirectPath} replace />;
   }
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await registerUser(username.trim(), email.trim(), password);
-      navigate("/login", { replace: true, state: { from: redirectPath } });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Unable to sign up right now.";
-      setError(message);
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="auth-page">

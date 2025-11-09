@@ -28,6 +28,9 @@ export class Version {
   @Column({ type: 'text' })
   content: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  label: string | null;
+
   @Column()
   version_number: number;
 
