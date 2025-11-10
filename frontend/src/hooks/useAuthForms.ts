@@ -1,3 +1,14 @@
+/**
+ * Authentication Hooks
+ * ----------------------
+ * Collection of reusable hooks for managing authentication flows:
+ * - `useLoginForm`: Handles login, MFA verification, and password reset.
+ * - `useRegisterForm`: Handles user registration with password validation.
+ * - `useResetPasswordForm`: Handles resetting a user's password via token.
+ *
+ * Each hook is fully self-contained, returning both UI-ready state and event handlers.
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   loginUser,
@@ -11,6 +22,20 @@ import {
 } from "../services/authService";
 import { getToken, setRole, setStoredUser, setToken } from "../utils/auth";
 
+/* -------------------------------------------------------------------------- */
+/*                              useLoginForm Hook                             */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * useLoginFormOptions
+ * ---------------------
+ * Configuration options for `useLoginForm`.
+ * - incomingResetSuccess: Optional message shown after password reset redirect.
+ * - onAuthenticated: Called once the user has logged in successfully.
+ * - onResetSuccess: Called after a password reset email request is successful.
+ * - replaceLocation: Function to update browser location/state.
+ * - redirectState: Optional redirect state after login success.
+ */
 type UseLoginFormOptions = {
   incomingResetSuccess?: string | null;
   onAuthenticated(): void;
@@ -19,11 +44,20 @@ type UseLoginFormOptions = {
   redirectState?: Record<string, unknown>;
 };
 
+/** Type guard to detect MFA challenge response from server. */
 const isMfaChallengeResponse = (
   response: LoginResponse,
 ): response is MfaChallengeResponse =>
   (response as MfaChallengeResponse).requires_mfa === true;
 
+/**
+ * useLoginForm
+ * -----------------
+ * Manages login form logic, including:
+ * - Email/password login submission.
+ * - Multi-Factor Authentication (MFA) verification.
+ * - Password reset flow (request modal and success/error state).
+ */
 export function useLoginForm({
   incomingResetSuccess,
   onAuthenticated,
@@ -31,45 +65,55 @@ export function useLoginForm({
   replaceLocation,
   redirectState,
 }: UseLoginFormOptions) {
+  // -------------------- Basic login state --------------------
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [hasToken, setHasToken] = useState(() => Boolean(getToken()));
+
+  // -------------------- Password reset modal state --------------------
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [isResetSubmitting, setIsResetSubmitting] = useState(false);
+
+  // -------------------- Post-reset success message --------------------
   const [loginSuccessMessage, setLoginSuccessMessage] = useState<string | null>(
     () => incomingResetSuccess ?? null,
   );
+
+  // -------------------- Multi-Factor Authentication --------------------
   const [requiresMfa, setRequiresMfa] = useState(false);
   const [mfaToken, setMfaToken] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [mfaMessage, setMfaMessage] = useState<string | null>(null);
   const [isVerifyingMfa, setIsVerifyingMfa] = useState(false);
 
+  /* -------------------- Effects -------------------- */
+
+  // Prefill reset email when reset modal opens
   useEffect(() => {
     if (isResetOpen) {
       setResetEmail((current) => current || email);
       return;
     }
-
     setResetError(null);
     setResetSuccess(null);
     setIsResetSubmitting(false);
   }, [isResetOpen, email]);
 
+  // Handle incoming reset success message on navigation
   useEffect(() => {
-    if (!incomingResetSuccess) {
-      return;
-    }
-
+    if (!incomingResetSuccess) return;
     setLoginSuccessMessage(incomingResetSuccess);
     replaceLocation(redirectState);
   }, [incomingResetSuccess, redirectState, replaceLocation]);
 
+  /* -------------------- Login Logic -------------------- */
+
+  /** Persist token + user data after successful authentication. */
   const handleLoginSuccess = useCallback(
     (data: LoginSuccessResponse) => {
       setToken(data.access_token);
@@ -81,6 +125,7 @@ export function useLoginForm({
     [onAuthenticated],
   );
 
+  /** Standard email/password login handler. */
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -94,6 +139,8 @@ export function useLoginForm({
 
       try {
         const data = await loginUser(email, password);
+
+        // MFA required → show second step
         if (isMfaChallengeResponse(data)) {
           setRequiresMfa(true);
           setMfaToken(data.mfaToken);
@@ -113,6 +160,7 @@ export function useLoginForm({
     [email, password, handleLoginSuccess],
   );
 
+  /** Verifies MFA code during two-step login. */
   const handleVerifyMfa = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -140,6 +188,7 @@ export function useLoginForm({
     [handleLoginSuccess, mfaCode, mfaToken],
   );
 
+  /** Cancels MFA step and returns to login form. */
   const handleCancelMfa = useCallback(() => {
     setRequiresMfa(false);
     setMfaToken(null);
@@ -147,6 +196,8 @@ export function useLoginForm({
     setMfaMessage(null);
     setIsSubmitting(false);
   }, []);
+
+  /* -------------------- Password Reset Logic -------------------- */
 
   const openResetModal = useCallback(() => {
     setResetEmail(email);
@@ -157,6 +208,7 @@ export function useLoginForm({
     setIsResetOpen(false);
   }, []);
 
+  /** Sends password reset request. */
   const handleResetSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -189,10 +241,14 @@ export function useLoginForm({
     [isResetSubmitting, onResetSuccess, resetEmail],
   );
 
+  /* -------------------- UI Text -------------------- */
+
   const headerTitle = requiresMfa ? "Verify it's you" : "Welcome back";
   const headerSubtitle = requiresMfa
     ? mfaMessage ?? "Enter the 6-digit code we emailed you to finish signing in."
     : "Sign in to continue your projects.";
+
+  /* -------------------- Return API -------------------- */
 
   return {
     // Auth state
@@ -228,11 +284,29 @@ export function useLoginForm({
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/*                            useRegisterForm Hook                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * useRegisterFormOptions
+ * ------------------------
+ * - redirectPath: Route to navigate after registration success.
+ * - onRegistered: Callback after successful registration.
+ */
 type UseRegisterFormOptions = {
   redirectPath: string;
   onRegistered(): void;
 };
 
+/**
+ * useRegisterForm
+ * ----------------
+ * Handles new user registration logic, including:
+ * - Basic form state management.
+ * - Password confirmation and validation.
+ * - Error handling for existing users or server errors.
+ */
 export function useRegisterForm({
   redirectPath,
   onRegistered,
@@ -245,6 +319,7 @@ export function useRegisterForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasToken = useMemo(() => Boolean(getToken()), []);
 
+  /** Registration submission handler. */
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -287,11 +362,29 @@ export function useRegisterForm({
   };
 }
 
+/* -------------------------------------------------------------------------- */
+/*                         useResetPasswordForm Hook                          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * useResetPasswordFormOptions
+ * ------------------------------
+ * - token: Reset token provided in the URL.
+ * - onSuccess: Callback triggered after successful reset.
+ */
 type UseResetPasswordFormOptions = {
   token: string;
   onSuccess(message: string): void;
 };
 
+/**
+ * useResetPasswordForm
+ * ----------------------
+ * Handles the password reset form logic:
+ * - Validates token and password length.
+ * - Confirms password match.
+ * - Submits to the resetPassword API endpoint.
+ */
 export function useResetPasswordForm({
   token,
   onSuccess,
@@ -303,6 +396,7 @@ export function useResetPasswordForm({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /** Handles password reset submission. */
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();

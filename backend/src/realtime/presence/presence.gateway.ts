@@ -1,3 +1,10 @@
+/**
+ * PresenceGateway
+ * ----------------
+ * Handles real-time user presence tracking in collaborative sessions.
+ * Keeps project members aware of who is currently active using WebSocket events.
+ */
+
 import {
   ConnectedSocket,
   MessageBody,
@@ -8,22 +15,16 @@ import {
 import { Server, Socket } from 'socket.io';
 import { SessionService } from '../../session/session.service';
 
-type PresenceJoinPayload = {
-  sessionId: number;
-};
+/** -------------------- Types -------------------- */
 
-type PresenceLeavePayload = {
-  sessionId?: number;
-};
+type PresenceJoinPayload = { sessionId: number };
+type PresenceLeavePayload = { sessionId?: number };
+type PresenceHeartbeatPayload = { sessionId: number };
 
-type PresenceHeartbeatPayload = {
-  sessionId: number;
-};
+/** -------------------- Gateway -------------------- */
 
 @WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
+  cors: { origin: '*' },
   namespace: 'presence',
 })
 export class PresenceGateway {
@@ -34,6 +35,10 @@ export class PresenceGateway {
 
   constructor(private readonly sessionService: SessionService) {}
 
+  /**
+   * Handles client connection to a presence-tracking session.
+   * Joins the WebSocket room for the related project and broadcasts updated presence.
+   */
   @SubscribeMessage('presence:join')
   async handleJoin(
     @ConnectedSocket() client: Socket,
@@ -60,14 +65,22 @@ export class PresenceGateway {
 
     this.clientSessions.set(client.id, { sessionId, projectId });
     client.join(room);
+
     await this.sessionService.markSessionActivity(sessionId);
     await this.broadcastProjectPresence(projectId);
   }
 
+  /**
+   * Handles client disconnection by cleaning up session tracking data.
+   */
   async handleDisconnect(client: Socket) {
     await this.cleanupClient(client);
   }
 
+  /**
+   * Handles explicit client leave requests.
+   * Useful when a user closes a tab without disconnecting the socket.
+   */
   @SubscribeMessage('presence:leave')
   async handleLeave(
     @ConnectedSocket() client: Socket,
@@ -76,15 +89,18 @@ export class PresenceGateway {
     await this.cleanupClient(client, payload?.sessionId);
   }
 
+  /**
+   * Heartbeat signal from clients to indicate active presence.
+   * Updates session activity and rebroadcasts the presence list.
+   */
   @SubscribeMessage('presence:heartbeat')
   async handleHeartbeat(
     @MessageBody() payload: PresenceHeartbeatPayload,
     @ConnectedSocket() client: Socket,
   ) {
     const sessionId = Number(payload?.sessionId);
-    if (!Number.isFinite(sessionId)) {
-      return;
-    }
+    if (!Number.isFinite(sessionId)) return;
+
     await this.sessionService.markSessionActivity(sessionId);
     const mapping = this.clientSessions.get(client.id);
     if (mapping?.projectId) {
@@ -92,11 +108,17 @@ export class PresenceGateway {
     }
   }
 
+  /* -------------------------------------------------------------
+   * Internal Helpers
+   * ------------------------------------------------------------- */
+
+  /**
+   * Removes client-session mappings and ends the associated session.
+   */
   private async cleanupClient(client: Socket, overrideSessionId?: number) {
     const mapping = this.clientSessions.get(client.id);
-    if (!mapping) {
-      return;
-    }
+    if (!mapping) return;
+
     this.clientSessions.delete(client.id);
 
     const sessionId = overrideSessionId ?? mapping.sessionId;
@@ -105,11 +127,16 @@ export class PresenceGateway {
     if (sessionId) {
       await this.sessionService.endSession(sessionId).catch(() => undefined);
     }
+
     await this.broadcastProjectPresence(projectId);
   }
 
+  /**
+   * Broadcasts the active sessions and users for a given project to all connected clients.
+   */
   private async broadcastProjectPresence(projectId: number) {
     const sessions = await this.sessionService.getActiveSessionsByProject(projectId);
+
     this.server.to(this.getRoomName(projectId)).emit('presence:update', {
       projectId,
       sessions: sessions.map((session) => ({
@@ -128,6 +155,9 @@ export class PresenceGateway {
     });
   }
 
+  /**
+   * Generates the WebSocket room name for a given project.
+   */
   private getRoomName(projectId: number) {
     return `project:${projectId}`;
   }

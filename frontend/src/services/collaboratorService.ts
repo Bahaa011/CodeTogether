@@ -1,7 +1,19 @@
+/**
+ * Collaborator API Service
+ * ------------------------
+ * Provides frontend methods for managing project collaborators,
+ * including invitations, role management, and collaboration lookups.
+ */
+
 import axios from "axios";
 import { apiClient, buildAxiosError } from "./apiClient";
 import type { Project } from "./projectService";
 
+/**
+ * fetchCollaborationCount
+ * ------------------------
+ * Retrieves the number of collaborations associated with a given user.
+ */
 export async function fetchCollaborationCount(userId: number) {
   try {
     const { data } = await apiClient.get<{ user_id: number; count: number }>(
@@ -13,15 +25,23 @@ export async function fetchCollaborationCount(userId: number) {
   }
 }
 
+/**
+ * InviteCollaboratorPayload
+ * --------------------------
+ * Defines the payload used when inviting a collaborator to a project.
+ */
 type InviteCollaboratorPayload = {
   inviterId: number;
   projectId: number;
   inviteeIdentifier: string;
 };
 
-export async function inviteCollaborator(
-  payload: InviteCollaboratorPayload,
-) {
+/**
+ * inviteCollaborator
+ * -------------------
+ * Sends an invitation to a user to collaborate on a specified project.
+ */
+export async function inviteCollaborator(payload: InviteCollaboratorPayload) {
   try {
     const { data } = await apiClient.post<{ message: string }>(
       "/collaborators/invite",
@@ -33,11 +53,21 @@ export async function inviteCollaborator(
   }
 }
 
+/**
+ * RespondCollaboratorInvitePayload
+ * ---------------------------------
+ * Defines the payload for accepting or declining a collaboration invite.
+ */
 type RespondCollaboratorInvitePayload = {
   userId: number;
   accept: boolean;
 };
 
+/**
+ * respondToCollaboratorInvite
+ * ----------------------------
+ * Allows a user to accept or decline a collaborator invitation.
+ */
 export async function respondToCollaboratorInvite(
   notificationId: number,
   payload: RespondCollaboratorInvitePayload,
@@ -53,6 +83,11 @@ export async function respondToCollaboratorInvite(
   }
 }
 
+/**
+ * UserCollaboration
+ * ------------------
+ * Represents a collaboration record linking a user to a project.
+ */
 export type UserCollaboration = {
   id: number;
   role?: string;
@@ -60,6 +95,11 @@ export type UserCollaboration = {
   project?: Project;
 };
 
+/**
+ * fetchCollaborationsByUser
+ * --------------------------
+ * Retrieves all projects where the specified user is a collaborator.
+ */
 export async function fetchCollaborationsByUser(userId: number) {
   try {
     const { data } = await apiClient.get<UserCollaboration[]>(
@@ -74,6 +114,11 @@ export async function fetchCollaborationsByUser(userId: number) {
   }
 }
 
+/**
+ * CollaboratorRecord
+ * -------------------
+ * Defines a collaborator record within a specific project.
+ */
 export type CollaboratorRecord = {
   id: number;
   role?: string | null;
@@ -84,6 +129,11 @@ export type CollaboratorRecord = {
   };
 };
 
+/**
+ * fetchCollaboratorsByProject
+ * ----------------------------
+ * Retrieves all collaborators associated with a given project.
+ */
 export async function fetchCollaboratorsByProject(projectId: number) {
   try {
     const { data } = await apiClient.get<CollaboratorRecord[]>(
@@ -95,6 +145,11 @@ export async function fetchCollaboratorsByProject(projectId: number) {
   }
 }
 
+/**
+ * removeCollaborator
+ * -------------------
+ * Removes a collaborator from a project by their collaborator ID.
+ */
 export async function removeCollaborator(collaboratorId: number) {
   try {
     await apiClient.delete(`/collaborators/${collaboratorId}`);

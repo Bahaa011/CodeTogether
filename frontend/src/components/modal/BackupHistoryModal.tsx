@@ -1,9 +1,41 @@
+/**
+ * BackupHistoryModal Component
+ * ------------------------------
+ * Displays a list of saved file backups (versions) and allows
+ * users to view or revert to previous versions of a file.
+ *
+ * Responsibilities:
+ * - Show backup versions with metadata (date, author, version number).
+ * - Allow viewing or reverting to a selected version.
+ * - Integrate with `useBackupHistory` hook for fetching and managing backups.
+ * - Reuse the shared `Modal` component for layout consistency and accessibility.
+ *
+ * Context:
+ * Typically used within the “Workspace Settings” → “Backups” tab or
+ * as a standalone panel in the editor when managing file versions.
+ * The modal/panel distinction allows it to render either as a full modal
+ * or an embedded side panel depending on context.
+ */
+
 import { useMemo, useState } from "react";
 import Modal from "./Modal";
 import { useBackupHistory } from "../../hooks/useBackupHistory";
 import ConfirmationDialog from "./ConfirmationDialog";
 import "../../styles/backup-history.css";
 
+/**
+ * BackupHistoryProps
+ * --------------------
+ * Props accepted by BackupHistoryModal.
+ *
+ * - fileId: The ID of the file whose backups are to be displayed.
+ * - variant: Render mode ("modal" or "panel").
+ * - open: Whether the modal is visible (used if variant = "modal").
+ * - onClose: Callback to close the modal.
+ * - emptyMessage: Optional message to display when no backups exist.
+ * - onRevert: Called when the user confirms a revert to a specific version.
+ * - revertingVersionId: ID of the version currently being reverted (for loading state).
+ */
 type BackupHistoryProps = {
   fileId?: number | null;
   variant?: "modal" | "panel";
@@ -14,6 +46,12 @@ type BackupHistoryProps = {
   revertingVersionId?: number | null;
 };
 
+/**
+ * BackupHistoryModal
+ * --------------------
+ * Provides a file backup history interface.
+ * Users can browse, view, or revert to specific saved versions.
+ */
 export default function BackupHistoryModal(props: BackupHistoryProps) {
   const {
     fileId,
@@ -24,7 +62,19 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
     onRevert,
     revertingVersionId = null,
   } = props;
+
   const isPanel = variant === "panel";
+
+  /**
+   * Hook: useBackupHistory
+   * ------------------------
+   * Handles retrieval and management of backup versions.
+   * Provides:
+   * - backups: Array of available backup versions.
+   * - selectedBackup: Currently selected backup.
+   * - backupListState: Loading/empty/error/ready states.
+   * - handleViewBackup: Opens a read-only viewer for selected backup.
+   */
   const {
     backups,
     error,
@@ -34,15 +84,22 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
     handleViewBackup,
     backupListState,
   } = useBackupHistory({ fileId, variant, open });
+
   const [pendingVersionId, setPendingVersionId] = useState<number | null>(null);
+
   const pendingBackup = useMemo(
     () => backups.find((backup) => backup.id === pendingVersionId),
     [backups, pendingVersionId],
   );
 
+  /**
+   * Core backup list + details panel
+   * Displays all backups, with the selected version shown in the right column.
+   */
   const content = (
     <div className="backup-history-wrapper">
       <div className="backup-history">
+        {/* ---- Backup List ---- */}
         <div className="backup-history__list">
           {backupListState === "no-file" && (
             <p className="backup-history__status">
@@ -70,7 +127,6 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
                   backup.user?.username ||
                   backup.user?.email ||
                   (backup.user?.id ? `User #${backup.user.id}` : "Unknown");
-
                 const isSelected = backup.id === selectedId;
 
                 return (
@@ -100,6 +156,7 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
           )}
         </div>
 
+        {/* ---- Backup Details ---- */}
         <div className="backup-history__details">
           {selectedBackup ? (
             <>
@@ -115,6 +172,7 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
                     {new Date(selectedBackup.created_at).toLocaleString()}
                   </p>
                 </div>
+
                 {selectedBackup.user && (
                   <span className="backup-history__badge">
                     {selectedBackup.user.username ||
@@ -125,10 +183,13 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
                   </span>
                 )}
               </header>
+
               <p className="backup-history__instructions">
                 Open this backup in a separate viewer to inspect or compare its
                 contents without leaving your current workspace.
               </p>
+
+              {/* ---- Revert Action ---- */}
               {onRevert && (
                 <button
                   type="button"
@@ -154,6 +215,8 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
                     : "Revert to this backup"}
                 </button>
               )}
+
+              {/* ---- View Backup ---- */}
               <button
                 type="button"
                 className="backup-history__view"
@@ -174,6 +237,9 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
     </div>
   );
 
+  /**
+   * Confirmation dialog before reverting
+   */
   const dialogMessage = pendingBackup
     ? `Replace the current file with ${
         pendingBackup.label?.length
@@ -201,6 +267,7 @@ export default function BackupHistoryModal(props: BackupHistoryProps) {
     />
   );
 
+  // ---- Render variants ----
   if (isPanel) {
     return (
       <>

@@ -1,3 +1,10 @@
+/**
+ * CollaboratorController
+ * -----------------------
+ * Handles all API endpoints related to project collaborators.
+ * Supports collaborator management, invitations, role updates, and invite responses.
+ */
+
 import {
   Controller,
   Get,
@@ -21,7 +28,9 @@ import {
 export class CollaboratorController {
   constructor(private readonly service: CollaboratorService) {}
 
-  // ---------------- GET ----------------
+  /**
+   * Retrieve all collaborators in the system.
+   */
   @Get()
   async findAll() {
     const collabs = await this.service.getAllCollaborators();
@@ -30,18 +39,27 @@ export class CollaboratorController {
     return collabs;
   }
 
+  /**
+   * Retrieve all collaborators associated with a specific project.
+   */
   @Get('project/:projectId')
   async findByProject(@Param('projectId') projectId: number) {
     const collabs = await this.service.getCollaboratorsByProject(projectId);
     return collabs ?? [];
   }
 
+  /**
+   * Count the number of projects a specific user collaborates on.
+   */
   @Get('user/:userId/count')
   async countByUser(@Param('userId') userId: number) {
     const count = await this.service.countCollaborationsByUser(userId);
     return { user_id: Number(userId), count };
   }
 
+  /**
+   * Retrieve all projects where a specific user is a collaborator.
+   */
   @Get('user/:userId')
   async findByUser(@Param('userId') userId: number) {
     const collabs = await this.service.getCollaboratorsByUser(userId);
@@ -50,7 +68,9 @@ export class CollaboratorController {
     return collabs;
   }
 
-  // ---------------- POST ----------------
+  /**
+   * Add a new collaborator to a project.
+   */
   @Post()
   async add(@Body() createDto: CreateCollaboratorDto) {
     const { userId, projectId, role } = createDto;
@@ -61,7 +81,9 @@ export class CollaboratorController {
     return await this.service.addCollaborator(userId, projectId, role);
   }
 
-  // ---------------- PUT ----------------
+  /**
+   * Update the role of an existing collaborator.
+   */
   @Put(':id')
   async updateRole(
     @Param('id') id: number,
@@ -78,7 +100,9 @@ export class CollaboratorController {
     return { message: 'Collaborator role updated.', collaborator: updated };
   }
 
-  // ---------------- DELETE ----------------
+  /**
+   * Remove a collaborator from a project.
+   */
   @Delete(':id')
   async remove(@Param('id') id: number) {
     const success = await this.service.removeCollaborator(id);
@@ -87,6 +111,9 @@ export class CollaboratorController {
     return { message: 'Collaborator removed successfully.' };
   }
 
+  /**
+   * Send a collaboration invite to a user via email or username.
+   */
   @Post('invite')
   async invite(@Body() inviteDto: InviteCollaboratorDto) {
     const { inviterId, projectId, inviteeIdentifier } = inviteDto;
@@ -101,6 +128,9 @@ export class CollaboratorController {
     );
   }
 
+  /**
+   * Respond to a collaboration invite (accept or reject).
+   */
   @Post('invite/:notificationId/respond')
   async respond(
     @Param('notificationId') notificationId: number,

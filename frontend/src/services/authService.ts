@@ -1,6 +1,18 @@
+/**
+ * Auth API Service
+ * ----------------
+ * Handles all authentication-related API requests including login,
+ * registration, MFA verification, password resets, and user profile retrieval.
+ */
+
 import { apiClient, buildAxiosError } from "./apiClient";
 import type { StoredUser } from "../utils/auth";
 
+/**
+ * LoginSuccessResponse
+ * ---------------------
+ * Represents a successful login containing the user and access token.
+ */
 export type LoginSuccessResponse = {
   access_token: string;
   user: {
@@ -11,14 +23,30 @@ export type LoginSuccessResponse = {
   };
 };
 
+/**
+ * MfaChallengeResponse
+ * ---------------------
+ * Represents a response indicating MFA verification is required before login completes.
+ */
 export type MfaChallengeResponse = {
   requires_mfa: true;
   mfaToken: string;
   message?: string;
 };
 
+/**
+ * LoginResponse
+ * --------------
+ * Union type for either a successful login or MFA challenge response.
+ */
 export type LoginResponse = LoginSuccessResponse | MfaChallengeResponse;
 
+/**
+ * loginUser
+ * ----------
+ * Sends user credentials to the backend to initiate login.
+ * May return an access token or an MFA challenge.
+ */
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
   try {
     const { data } = await apiClient.post<LoginResponse>("/auth/login", { email, password });
@@ -28,6 +56,11 @@ export async function loginUser(email: string, password: string): Promise<LoginR
   }
 }
 
+/**
+ * verifyMfaLogin
+ * ----------------
+ * Verifies the MFA code provided by the user during login.
+ */
 export async function verifyMfaLogin(token: string, code: string): Promise<LoginSuccessResponse> {
   try {
     const { data } = await apiClient.post<LoginSuccessResponse>("/auth/mfa/verify", {
@@ -40,6 +73,11 @@ export async function verifyMfaLogin(token: string, code: string): Promise<Login
   }
 }
 
+/**
+ * registerUser
+ * --------------
+ * Registers a new user with username, email, and password.
+ */
 export async function registerUser(username: string, email: string, password: string) {
   try {
     const { data } = await apiClient.post("/users/register", { username, email, password });
@@ -49,6 +87,11 @@ export async function registerUser(username: string, email: string, password: st
   }
 }
 
+/**
+ * requestPasswordReset
+ * ---------------------
+ * Requests a password reset email to be sent to the specified address.
+ */
 export async function requestPasswordReset(email: string) {
   try {
     const { data } = await apiClient.post<{ message?: string }>(
@@ -61,6 +104,11 @@ export async function requestPasswordReset(email: string) {
   }
 }
 
+/**
+ * resetPassword
+ * ---------------
+ * Submits a new password using a valid reset token.
+ */
 export async function resetPassword(token: string, newPassword: string) {
   try {
     const { data } = await apiClient.post<{ message?: string }>(
@@ -73,6 +121,11 @@ export async function resetPassword(token: string, newPassword: string) {
   }
 }
 
+/**
+ * fetchProfile
+ * --------------
+ * Retrieves the authenticated user's profile data.
+ */
 export async function fetchProfile(): Promise<StoredUser> {
   try {
     const { data } = await apiClient.get<Partial<StoredUser> & { userId?: number }>(
@@ -93,6 +146,11 @@ export async function fetchProfile(): Promise<StoredUser> {
   }
 }
 
+/**
+ * toggleMfa
+ * -----------
+ * Enables or disables multi-factor authentication for the user.
+ */
 export async function toggleMfa(enabled: boolean): Promise<StoredUser> {
   try {
     const { data } = await apiClient.post<StoredUser>("/auth/mfa/toggle", { enabled });

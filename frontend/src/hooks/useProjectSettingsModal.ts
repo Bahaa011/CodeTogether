@@ -1,14 +1,49 @@
-import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
-import { deleteProject, updateProject, type Project } from "../services/projectService";
+/**
+ * useProjectSettingsModal Hook
+ *
+ * Manages the logic and data flow for the Project Settings modal.
+ * Handles project details, collaborators, and deletion functionality,
+ * ensuring a clean separation between UI rendering and business logic.
+ *
+ * Responsibilities:
+ * - Manage project metadata (title, description, visibility, tags).
+ * - Handle tab navigation between “Details”, “Backups”, and “Collaborators”.
+ * - Fetch and modify collaborator lists.
+ * - Submit updates to project settings and reflect changes in parent state.
+ * - Handle project deletion with proper permission checks.
+ */
+
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  deleteProject,
+  updateProject,
+  type Project,
+} from "../services/projectService";
 import {
   fetchCollaboratorsByProject,
   removeCollaborator,
   type CollaboratorRecord,
 } from "../services/collaboratorService";
 
+/**
+ * ProjectSettingsTabId
+ *
+ * Enumerates the available sections in the Project Settings modal:
+ * - "details": Edit project information (title, description, tags, etc.)
+ * - "backups": View or manage saved project backups.
+ * - "collaborators": Manage project collaborators.
+ */
 export type ProjectSettingsTabId = "details" | "backups" | "collaborators";
 
+/**
+ * UseProjectSettingsModalOptions
+ *
+ * Configuration options passed into the hook.
+ * - open: Whether the modal is currently visible.
+ * - project: The project entity being managed.
+ * - canEdit: Whether the current user has permission to modify the project.
+ * - onProjectUpdated: Callback invoked when project details are successfully updated.
+ */
 type UseProjectSettingsModalOptions = {
   open: boolean;
   project: Project | null;
@@ -16,36 +51,64 @@ type UseProjectSettingsModalOptions = {
   onProjectUpdated(project: Project): void;
 };
 
+/**
+ * useProjectSettingsModal
+ *
+ * Provides full reactive management for the Project Settings modal.
+ *
+ * Returns:
+ * - activeTab: The currently active tab ("details", "backups", or "collaborators").
+ * - title, description, isPublic, selectedTags: Current editable project fields.
+ * - saving: Indicates if project changes are being saved.
+ * - statusMessage / statusTone: Feedback message and its visual tone ("info" | "error").
+ * - collaborators: List of project collaborators.
+ * - collaboratorsLoading / collaboratorsError: Loading/error states for collaborator fetch.
+ * - collaboratorAction: Recent collaborator action message.
+ * - deletingProject / deleteProjectError: Track project deletion state and errors.
+ * - detailsChanged: Whether unsaved modifications exist.
+ * - handleSubmit(): Submits updated project details.
+ * - handleRemoveCollaborator(record): Removes a collaborator from the project.
+ * - handleDeleteProject(): Deletes the project permanently.
+ */
 export function useProjectSettingsModal({
   open,
   project,
   canEdit,
   onProjectUpdated,
 }: UseProjectSettingsModalOptions) {
+  // --- State: Tabs & Form Fields ---
   const [activeTab, setActiveTab] =
     useState<ProjectSettingsTabId>("details");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isPublic, setIsPublic] = useState(false);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // --- State: Status & Saving ---
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<"info" | "error">("info");
-  const [collaborators, setCollaborators] = useState<CollaboratorRecord[]>(
-    [],
-  );
+
+  // --- State: Collaborators ---
+  const [collaborators, setCollaborators] = useState<CollaboratorRecord[]>([]);
   const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
   const [collaboratorsError, setCollaboratorsError] = useState<string | null>(
     null,
   );
-  const [collaboratorAction, setCollaboratorAction] = useState<
-    string | null
-  >(null);
+  const [collaboratorAction, setCollaboratorAction] = useState<string | null>(
+    null,
+  );
+
+  // --- State: Project Deletion ---
   const [deletingProject, setDeletingProject] = useState(false);
   const [deleteProjectError, setDeleteProjectError] = useState<string | null>(
     null,
   );
 
+  /**
+   * Effect: Reset state when modal opens or closes.
+   * Resets transient states like delete confirmation and status messages.
+   */
   useEffect(() => {
     if (!open) {
       setDeletingProject(false);
@@ -56,6 +119,9 @@ export function useProjectSettingsModal({
     setStatusMessage(null);
   }, [open]);
 
+  /**
+   * Effect: Populate editable fields when project data changes.
+   */
   useEffect(() => {
     if (!project) {
       setTitle("");
@@ -64,9 +130,11 @@ export function useProjectSettingsModal({
       setSelectedTags([]);
       return;
     }
+
     setTitle(project.title ?? "");
     setDescription(project.description ?? "");
     setIsPublic(Boolean(project.is_public));
+
     const tagList =
       project.tags
         ?.map((tag) => tag?.tag)
@@ -74,10 +142,11 @@ export function useProjectSettingsModal({
     setSelectedTags(tagList);
   }, [project]);
 
+  /**
+   * Effect: Load collaborator list when the "Collaborators" tab is opened.
+   */
   useEffect(() => {
-    if (!project?.id || activeTab !== "collaborators") {
-      return;
-    }
+    if (!project?.id || activeTab !== "collaborators") return;
 
     let cancelled = false;
     setCollaboratorsLoading(true);
@@ -105,12 +174,14 @@ export function useProjectSettingsModal({
     };
 
     void load();
-
     return () => {
       cancelled = true;
     };
   }, [activeTab, project?.id]);
 
+  /**
+   * Derived: Detect whether editable fields differ from the original project.
+   */
   const detailsChanged = useMemo(() => {
     if (!project) return false;
     const originalTags =
@@ -127,11 +198,16 @@ export function useProjectSettingsModal({
     );
   }, [description, isPublic, project, selectedTags, title]);
 
+  /**
+   * handleSubmit
+   *
+   * Saves modified project details to the backend.
+   * Displays feedback message on success or failure.
+   */
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!project || !detailsChanged || !canEdit) {
-      return;
-    }
+    if (!project || !detailsChanged || !canEdit) return;
+
     setSaving(true);
     setStatusMessage(null);
 
@@ -155,11 +231,16 @@ export function useProjectSettingsModal({
     }
   };
 
+  /**
+   * handleRemoveCollaborator
+   *
+   * Removes a collaborator from the current project.
+   * Updates the collaborator list on success.
+   */
   const handleRemoveCollaborator = async (record: CollaboratorRecord) => {
-    if (!record.id) {
-      return;
-    }
+    if (!record.id) return;
     setCollaboratorAction(null);
+
     try {
       await removeCollaborator(record.id);
       setCollaborators((prev) => prev.filter((item) => item.id !== record.id));
@@ -177,6 +258,12 @@ export function useProjectSettingsModal({
     }
   };
 
+  /**
+   * handleDeleteProject
+   *
+   * Permanently deletes the current project.
+   * Requires edit permissions and a valid project ID.
+   */
   const handleDeleteProject = async () => {
     if (!project?.id) {
       throw new Error("Project is still loading.");
@@ -187,6 +274,7 @@ export function useProjectSettingsModal({
 
     setDeletingProject(true);
     setDeleteProjectError(null);
+
     try {
       await deleteProject(project.id);
       setStatusTone("info");
@@ -203,6 +291,7 @@ export function useProjectSettingsModal({
     }
   };
 
+  // --- Return API ---
   return {
     activeTab,
     setActiveTab,

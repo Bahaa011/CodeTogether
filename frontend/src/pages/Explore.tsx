@@ -1,70 +1,71 @@
+/**
+ * Explore Page
+ * -------------
+ * Displays the public discovery feed of CodeTogether projects.
+ *
+ * Features:
+ * - Browse trending, recent, and collaborative projects
+ * - Filter by category and tags
+ * - Infinite scrolling with IntersectionObserver
+ * - Tag-based filtering synced with active feed type
+ * - Responsive stats panel and lazy "Load More" logic
+ *
+ * Components:
+ * - useExploreProjects: Custom hook handling data fetching, filters, and tag state
+ * - PROJECT_TAG_OPTIONS: Predefined list of topics to refine the feed
+ * - Dynamic card list rendering similar to Profile.tsx project grid
+ */
+
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { type Project } from "../services/projectService";
 import { PROJECT_TAG_OPTIONS } from "../utils/projectTags";
 import {
   useExploreProjects,
   type ExploreFilterId,
 } from "../hooks/useExploreProjects";
-import { isNonEmptyString, toTimestamp } from "../utils/projectFilters";
+import { isNonEmptyString } from "../utils/projectFilters";
 import "../styles/explore.css";
+import "../styles/load-more.css";
 
+/**
+ * FILTER_OPTIONS
+ * ----------------
+ * Available discovery filters for the Explore feed:
+ * - "Most Popular" → highlights high-engagement projects
+ * - "Recent" → shows the latest created or updated projects
+ * - "Collaborative" → showcases projects with multiple contributors
+ */
 const FILTER_OPTIONS: Array<{
   id: ExploreFilterId;
   label: string;
   icon: string;
 }> = [
-  { id: "trending", label: "Trending", icon: "🔥" },
-  { id: "recent", label: "Recent", icon: "🆕" },
   { id: "popular", label: "Most Popular", icon: "⭐" },
+  { id: "recent", label: "Recent", icon: "🆕" },
   { id: "collaborative", label: "Collaborative", icon: "🤝" },
 ];
 
-const ICON_TONES = ["magenta", "blue", "orange", "violet", "amber", "cyan", "green"];
-
-function getIconTone(projectId: number) {
-  return ICON_TONES[Math.abs(projectId) % ICON_TONES.length] ?? "magenta";
-}
-
-function getProjectInitials(title: string) {
-  const initials = title
-    .trim()
-    .split(/\s+/)
-    .map((word) => word[0] ?? "")
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  return initials || "PR";
-}
-
-function getOwnerLabel(project: Project) {
-  const username = project.owner?.username;
-  if (username && username.trim().length > 0) {
-    return username.startsWith("@") ? username : `@${username}`;
-  }
-  if (project.owner?.email) {
-    return project.owner.email;
-  }
-  if (project.ownerId) {
-    return `Owner #${project.ownerId}`;
-  }
-  return "Unknown owner";
-}
-
-function formatUpdatedLabel(value?: string) {
-  if (!value) return null;
-  const timestamp = toTimestamp(value);
-  if (!timestamp) return null;
-  return new Date(timestamp).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
+/**
+ * Explore Component
+ * -------------------
+ * Main page for browsing and discovering community projects.
+ * Includes:
+ * - Hero section with platform stats
+ * - Filter controls and topic tags
+ * - Paginated project feed with infinite scrolling
+ */
 export default function Explore() {
+  /** Number of projects to show per scroll batch */
   const PAGE_SIZE = 6;
+
+  /**
+   * useExploreProjects Hook
+   * -------------------------
+   * Handles fetching and filtering logic for Explore feed.
+   * Returns:
+   * - All projects and filtered subset
+   * - Loading and error states
+   * - Active filter & tag state management
+   */
   const {
     projects,
     filteredProjects,
@@ -77,52 +78,69 @@ export default function Explore() {
     clearTags,
     heroStats,
   } = useExploreProjects();
+
+  /** Number of currently visible projects */
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
+  /**
+   * Reset visible count whenever filters change.
+   */
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [filteredProjects]);
 
+  /**
+   * Infinite Scrolling Logic
+   * -------------------------
+   * Observes the "load more" marker to dynamically append new projects
+   * as the user scrolls. Increases visibleCount by PAGE_SIZE each trigger.
+   */
   useEffect(() => {
-    if (!loadMoreRef.current) {
-      return;
-    }
+    if (!loadMoreRef.current) return;
 
     const target = loadMoreRef.current;
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            setVisibleCount((prev) => {
-              if (prev >= filteredProjects.length) {
-                return prev;
-              }
-              return Math.min(filteredProjects.length, prev + PAGE_SIZE);
-            });
+            setVisibleCount((prev) =>
+              Math.min(filteredProjects.length, prev + PAGE_SIZE)
+            );
           }
         });
       },
-      { rootMargin: "200px" },
+      { rootMargin: "200px" }
     );
 
     observer.observe(target);
-    return () => {
-      observer.disconnect();
-    };
+    return () => observer.disconnect();
   }, [filteredProjects.length]);
 
+  /** Derived display values */
   const visibleProjects = filteredProjects.slice(0, visibleCount);
   const hasMoreProjects = visibleCount < filteredProjects.length;
+
+  /** Manual fallback in case auto-load doesn’t trigger */
   const handleManualLoadMore = () => {
     setVisibleCount((prev) =>
-      Math.min(filteredProjects.length, prev + PAGE_SIZE),
+      Math.min(filteredProjects.length, prev + PAGE_SIZE)
     );
   };
 
+  /**
+   * JSX Return
+   * ------------
+   * Structured layout sections:
+   * 1. Hero – tagline and live community stats
+   * 2. Discovery – feed filters and tag selector
+   * 3. Project Grid – cards for each filtered project
+   * 4. Infinite Loader – optional “Load More” trigger
+   */
   return (
     <div className="home-page">
       <div className="home-container">
+        {/* ------------------ Hero Section ------------------ */}
         <section className="home-hero">
           <div className="home-hero__content">
             <p className="home-hero__eyebrow">Build With People Who Care</p>
@@ -134,20 +152,22 @@ export default function Explore() {
               showcase your own work. Every repo here is looking for momentum.
             </p>
             <div className="home-hero__actions">
-              <Link className="home-hero__cta" to="/playground">
-                Open Playground
-              </Link>
               <button
                 className="home-hero__ghost"
                 type="button"
                 onClick={() =>
-                  window.scrollTo({ top: document.body.offsetHeight / 3, behavior: "smooth" })
+                  window.scrollTo({
+                    top: document.body.offsetHeight / 3,
+                    behavior: "smooth",
+                  })
                 }
               >
                 See what&apos;s new
               </button>
             </div>
           </div>
+
+          {/* Stats cards from backend */}
           <div className="home-hero__panel">
             {heroStats.map((stat) => (
               <article key={stat.label} className="home-stat-card">
@@ -158,6 +178,7 @@ export default function Explore() {
           </div>
         </section>
 
+        {/* ------------------ Discovery Section ------------------ */}
         <section className="home-discovery">
           <header className="home-discovery__header">
             <div>
@@ -167,6 +188,8 @@ export default function Explore() {
                 Pick a feed style and optionally focus on topics that match your curiosity.
               </p>
             </div>
+
+            {/* Filter Buttons */}
             <div className="home-filters">
               {FILTER_OPTIONS.map((filter) => (
                 <button
@@ -184,6 +207,7 @@ export default function Explore() {
             </div>
           </header>
 
+          {/* Tag Chips */}
           <div className="home-tag-filter">
             <div className="home-tag-filter__label-row">
               <span className="home-tag-filter__label">Topics</span>
@@ -215,6 +239,7 @@ export default function Explore() {
           </div>
         </section>
 
+        {/* ------------------ Projects Grid ------------------ */}
         <section className="home-grid-section">
           <header className="home-grid-header">
             <div>
@@ -226,92 +251,86 @@ export default function Explore() {
             </span>
           </header>
 
-          <div className="home-projects">
-            {loading && <div className="home-feedback">Loading projects…</div>}
+          {/* Project Feed */}
+          <div className="profile-panel profile-panel--tabs">
+            {loading && <p className="profile-panel-placeholder">Loading projects…</p>}
+
             {error && !loading && (
-              <div className="home-feedback home-feedback--error">{error}</div>
+              <p className="profile-panel-placeholder">{error}</p>
             )}
 
             {!loading && !error && filteredProjects.length === 0 && (
-              <div className="home-feedback">
+              <p className="profile-panel-placeholder">
                 {projects.length === 0
                   ? "No projects available yet."
                   : "No projects match the selected filters."}
-              </div>
+              </p>
             )}
 
-            {!loading &&
-              !error &&
-              visibleProjects.map((project) => {
-                const tags =
-                  project.tags
-                    ?.map((tag) => tag?.tag)
-                    .filter(isNonEmptyString) ?? [];
-                const collaboratorCount = project.collaborators?.length ?? 0;
-                const visibilityLabel = project.is_public ? "Public" : "Private";
-                const updatedLabel = formatUpdatedLabel(
-                  project.updated_at ?? project.created_at,
-                );
-                const iconTone = getIconTone(project.id);
-                const initials = getProjectInitials(project.title);
-                const ownerLabel = getOwnerLabel(project);
+            {!loading && !error && filteredProjects.length > 0 && (
+              <ul className="profile-project-list">
+                {visibleProjects.map((project) => {
+                  const tags =
+                    project.tags?.map((tag) => tag?.tag).filter(isNonEmptyString) ?? [];
 
-                return (
-                  <article key={project.id} className="home-project">
-                    <header className="home-project__header">
-                      <div
-                        className={`home-project__icon tone-${iconTone}`}
-                        aria-hidden="true"
+                  return (
+                    <li key={project.id} className="profile-project-item">
+                      <a
+                        href={`/projects/${project.id}`}
+                        className="profile-project-link"
                       >
-                        {initials}
-                      </div>
-                      <div className="home-project__meta">
-                        <h3 className="home-project__title">{project.title}</h3>
-                        <p className="home-project__author">by {ownerLabel}</p>
-                      </div>
-                      {updatedLabel && (
-                        <span className="home-project__status">
-                          Updated {updatedLabel}
-                        </span>
-                      )}
-                    </header>
-
-                    <p className="home-project__description">{project.description}</p>
-
-                    <div className="home-project__tags">
-                      {tags.length > 0 ? (
-                        tags.map((tag) => (
-                          <span key={tag} className="home-project__tag">
-                            {tag}
+                        <div className="profile-project-heading">
+                          <h3 className="profile-project-title">{project.title}</h3>
+                          <span
+                            className={
+                              project.is_public
+                                ? "profile-project-badge profile-project-badge--public"
+                                : "profile-project-badge"
+                            }
+                          >
+                            {project.is_public ? "Public" : "Private"}
                           </span>
-                        ))
-                      ) : (
-                        <span className="home-project__tag home-project__tag--muted">
-                          No tags yet
+                        </div>
+                        <p className="profile-project-description">
+                          {project.description || "No description provided."}
+                        </p>
+                        {tags.length > 0 && (
+                          <div className="profile-project-tags">
+                            {tags.map((tag) => (
+                              <span key={tag} className="profile-project-tag">
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <span className="profile-project-meta">
+                          Updated{" "}
+                          {project.updated_at
+                            ? new Date(project.updated_at).toLocaleString(undefined, {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : "recently"}
                         </span>
-                      )}
-                    </div>
-
-                    <footer className="home-project__footer">
-                      <div className="home-project__stats">
-                        <span className="home-project__stat">
-                          👥 {collaboratorCount.toLocaleString()} {collaboratorCount === 1 ? "collaborator" : "collaborators"}
-                        </span>
-                        <span className="home-project__stat">{visibilityLabel}</span>
-                      </div>
-
-                      <Link className="home-project__cta" to={`/projects/${project.id}`}>
-                        View Project
-                      </Link>
-                    </footer>
-                  </article>
-                );
-              })}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
+
+          {/* Infinite Loader */}
           {hasMoreProjects && (
-            <div className="home-load-more" ref={loadMoreRef}>
-              <p>Keep scrolling to load more projects.</p>
-              <button type="button" onClick={handleManualLoadMore}>
+            <div className="load-more-container" ref={loadMoreRef}>
+              <p className="load-more-text">
+                Keep scrolling to load more projects.
+              </p>
+              <button
+                type="button"
+                onClick={handleManualLoadMore}
+                className="load-more-button"
+              >
                 Load more now
               </button>
             </div>

@@ -1,3 +1,10 @@
+/**
+ * CollaboratorService
+ * --------------------
+ * Handles the business logic for managing project collaborators.
+ * Supports collaborator creation, retrieval, role updates, invitations, and invite responses.
+ */
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -23,7 +30,10 @@ export class CollaboratorService {
     private readonly notificationService: NotificationService,
   ) {}
 
-  // ---------------- CREATE ----------------
+  /**
+   * Add a collaborator to a project.
+   * Returns the existing collaborator if already added.
+   */
   async addCollaborator(
     userId: number,
     projectId: number,
@@ -45,11 +55,16 @@ export class CollaboratorService {
     return await this.collabRepo.save(collaborator);
   }
 
-  // ---------------- READ (GET) ----------------
+  /**
+   * Retrieve all collaborators in the system.
+   */
   async getAllCollaborators() {
     return await this.collabRepo.find({ relations: ['user', 'project'] });
   }
 
+  /**
+   * Retrieve all collaborators for a specific project.
+   */
   async getCollaboratorsByProject(projectId: number) {
     return await this.collabRepo.find({
       where: { project: { id: projectId } },
@@ -57,6 +72,9 @@ export class CollaboratorService {
     });
   }
 
+  /**
+   * Retrieve all collaborations for a specific user.
+   */
   async getCollaboratorsByUser(userId: number) {
     return await this.collabRepo.find({
       where: { user: { id: userId } },
@@ -64,13 +82,19 @@ export class CollaboratorService {
     });
   }
 
+  /**
+   * Count the number of collaborations for a user.
+   */
   async countCollaborationsByUser(userId: number) {
     return await this.collabRepo.count({
       where: { user: { id: Number(userId) } },
     });
   }
 
-  // ---------------- UPDATE ----------------
+  /**
+   * Update the role of a collaborator.
+   * Throws an error if the collaborator does not exist.
+   */
   async updateCollaboratorRole(id: number, newRole: string) {
     const collab = await this.collabRepo.findOne({ where: { id: Number(id) } });
     if (!collab) throw new NotFoundException('Collaborator not found.');
@@ -78,12 +102,19 @@ export class CollaboratorService {
     return await this.collabRepo.save(collab);
   }
 
-  // ---------------- DELETE ----------------
+  /**
+   * Remove a collaborator by ID.
+   * Returns true if deletion was successful.
+   */
   async removeCollaborator(id: number): Promise<boolean> {
     const result = await this.collabRepo.delete(Number(id));
     return (result.affected ?? 0) > 0;
   }
 
+  /**
+   * Invite a user to collaborate on a project.
+   * Only the project owner can send invitations.
+   */
   async inviteCollaborator(
     inviterId: number,
     projectId: number,
@@ -173,6 +204,10 @@ export class CollaboratorService {
     return { message: 'Invitation sent successfully.' };
   }
 
+  /**
+   * Handle a user’s response to a collaboration invitation.
+   * Updates the invitation status and adds the user as a collaborator if accepted.
+   */
   async respondToInvite(
     notificationId: number,
     userId: number,
@@ -187,10 +222,7 @@ export class CollaboratorService {
       );
     }
 
-    const metadata = (notification.metadata ?? {}) as Record<
-      string,
-      unknown
-    >;
+    const metadata = (notification.metadata ?? {}) as Record<string, unknown>;
     const inviteeId = Number(metadata.inviteeId);
 
     if (inviteeId !== Number(userId)) {
@@ -214,6 +246,7 @@ export class CollaboratorService {
     } else {
       metadata.status = 'declined';
     }
+
     metadata.respondedAt = new Date().toISOString();
 
     notification.metadata = metadata;

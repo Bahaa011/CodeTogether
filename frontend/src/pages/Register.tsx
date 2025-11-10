@@ -1,3 +1,15 @@
+/**
+ * Register Page
+ * ---------------
+ * Provides a registration form for new users to create a CodeTogether account.
+ *
+ * Features:
+ * - Username, email, and password input fields
+ * - Password confirmation with validation
+ * - Redirects to login page after successful registration
+ * - Automatically skips registration if user already has a valid token
+ */
+
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useRegisterForm } from "../hooks/useAuthForms";
 import "../styles/auth.css";
@@ -11,6 +23,7 @@ export default function Register() {
   const location = useLocation();
   const redirectPath = (location.state as LocationState | null)?.from || "/";
 
+  // Custom registration form hook
   const {
     hasToken,
     username,
@@ -30,10 +43,22 @@ export default function Register() {
       navigate("/login", { replace: true, state: { from: redirectPath } }),
   });
 
+  /**
+   * Redirect
+   * ----------
+   * If the user already has a valid token, skip the registration form
+   * and redirect them to the intended route or homepage.
+   */
   if (hasToken) {
     return <Navigate to={redirectPath} replace />;
   }
 
+  /**
+   * JSX Return
+   * -----------
+   * Displays a user-friendly registration form with validation,
+   * submission feedback, and navigation options.
+   */
   return (
     <div className="auth-page">
       <section className="auth-card">

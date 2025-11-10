@@ -1,3 +1,11 @@
+/**
+ * TerminalGateway
+ * ----------------
+ * Provides real-time code execution in isolated Docker containers via WebSocket.
+ * Handles multi-language code runs (Python, C++, JavaScript), live input/output streams,
+ * and secure cleanup of temporary workspaces per client.
+ */
+
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -12,15 +20,17 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 
 @WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
+  cors: { origin: '*' },
 })
 export class TerminalGateway {
   @WebSocketServer()
   server: Server;
 
-  private terminals = new Map<
+  /**
+   * Maps client IDs to their active execution sessions.
+   * Each session tracks its Docker process and temporary workspace.
+   */
+  private readonly terminals = new Map<
     string,
     {
       process: ChildProcessWithoutNullStreams;
@@ -30,15 +40,18 @@ export class TerminalGateway {
     }
   >();
 
-  // 🧠 Handle starting a code execution session
+  /* -------------------------------------------------------------
+   * START EXECUTION
+   * ------------------------------------------------------------- */
+
+  /**
+   * Starts a new code execution session for the client.
+   * Creates a temporary folder, writes the provided code, and spawns a Docker container.
+   */
   @SubscribeMessage('start-execution')
   async handleStart(
     @MessageBody()
-    data: {
-      language: string;
-      code: string;
-      filename?: string;
-    },
+    data: { language: string; code: string; filename?: string },
     @ConnectedSocket() client: Socket,
   ) {
     const requestedLanguage = data.language?.toLowerCase();
@@ -47,7 +60,7 @@ export class TerminalGateway {
       return;
     }
 
-    // Stop any previous execution for this client before starting a new one
+    // Stop any existing session for this client
     this.stopSession(client.id, false);
 
     const tempDir = path.join(
@@ -64,32 +77,24 @@ export class TerminalGateway {
 
       const dockerCmd = this.getDockerCommand(requestedLanguage, fileName, tempDir);
 
-      // 🧠 Start Docker in interactive mode
+      // Launch Docker in isolated interactive mode
       const child = spawn('docker', dockerCmd, {
         cwd: tempDir,
         stdio: ['pipe', 'pipe', 'pipe'],
       });
 
-      const session = {
+      this.terminals.set(client.id, {
         process: child,
         tempDir,
         filename: fileName,
         language: requestedLanguage,
-      };
-
-      this.terminals.set(client.id, session);
-      client.emit('started', {
-        filename: fileName,
-        language: requestedLanguage,
       });
 
-      child.stdout.on('data', (chunk) => {
-        client.emit('stdout', chunk.toString());
-      });
+      client.emit('started', { filename: fileName, language: requestedLanguage });
 
-      child.stderr.on('data', (chunk) => {
-        client.emit('stderr', chunk.toString());
-      });
+      // Stream container output back to the client
+      child.stdout.on('data', (chunk) => client.emit('stdout', chunk.toString()));
+      child.stderr.on('data', (chunk) => client.emit('stderr', chunk.toString()));
 
       child.on('error', (error) => {
         client.emit('stderr', `Failed to start execution: ${error.message}`);
@@ -111,6 +116,13 @@ export class TerminalGateway {
     }
   }
 
+  /* -------------------------------------------------------------
+   * INPUT & STOP
+   * ------------------------------------------------------------- */
+
+  /**
+   * Handles input from the user to send to the running Docker process (stdin).
+   */
   @SubscribeMessage('input')
   handleInput(@MessageBody() input: string, @ConnectedSocket() client: Socket) {
     const session = this.terminals.get(client.id);
@@ -118,10 +130,13 @@ export class TerminalGateway {
       client.emit('stderr', 'No active session to receive input.');
       return;
     }
-
     session.process.stdin.write(`${input}\n`);
   }
 
+  /**
+   * Stops the currently running execution for the connected client.
+   * Kills the Docker container and cleans up temporary files.
+   */
   @SubscribeMessage('stop')
   handleStop(@ConnectedSocket() client: Socket) {
     const session = this.terminals.get(client.id);
@@ -134,15 +149,23 @@ export class TerminalGateway {
     client.emit('stopped');
   }
 
+  /**
+   * Cleans up resources when a client disconnects unexpectedly.
+   */
   handleDisconnect(client: Socket) {
     this.stopSession(client.id);
   }
 
+  /* -------------------------------------------------------------
+   * INTERNAL HELPERS
+   * ------------------------------------------------------------- */
+
+  /**
+   * Stops and removes the execution session for a given client.
+   */
   private stopSession(clientId: string, notify = true) {
     const session = this.terminals.get(clientId);
-    if (!session) {
-      return;
-    }
+    if (!session) return;
 
     session.process.kill('SIGTERM');
     if (notify) {
@@ -151,15 +174,20 @@ export class TerminalGateway {
     }
   }
 
+  /**
+   * Recursively removes the temporary workspace.
+   */
   private safeRemove(targetPath: string) {
     try {
       fs.rmSync(targetPath, { recursive: true, force: true });
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.warn(`Failed to remove temp directory ${targetPath}:`, error);
     }
   }
 
+  /**
+   * Returns the default filename for a given language.
+   */
   private getDefaultFile(lang: string) {
     switch (lang) {
       case 'python':
@@ -173,6 +201,9 @@ export class TerminalGateway {
     }
   }
 
+  /**
+   * Builds the correct Docker command for the given language.
+   */
   private getDockerCommand(lang: string, filename: string, tempDir: string): string[] {
     switch (lang) {
       case 'python':

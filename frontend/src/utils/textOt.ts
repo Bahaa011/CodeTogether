@@ -1,3 +1,18 @@
+/**
+ * text-ot
+ * --------
+ * Operational Transformation (OT) utilities for text editing.
+ *
+ * Used in CodeTogether's real-time collaborative editor.
+ * Handles:
+ *  - Text operations (retain, insert, delete)
+ *  - Applying operations to text content
+ *  - Transforming operations for concurrency
+ *  - Generating diff operations between strings
+ */
+
+// ---------------- TYPES ----------------
+
 export type TextComponent =
   | { retain: number }
   | { insert: string }
@@ -6,6 +21,8 @@ export type TextComponent =
 export type TextOperation = TextComponent[];
 
 type ComponentType = "retain" | "insert" | "delete" | "none";
+
+// ---------------- HELPERS ----------------
 
 function componentType(component: TextComponent | undefined): ComponentType {
   if (!component) return "none";
@@ -21,18 +38,18 @@ function componentLength(component: TextComponent): number {
   return component.delete;
 }
 
+// ---------------- NORMALIZATION ----------------
+
+/**
+ * Merges consecutive components of the same type and removes invalid ones.
+ */
 export function normalizeOperation(operation: TextOperation): TextOperation {
   const normalized: TextOperation = [];
+
   for (const component of operation) {
-    if ("retain" in component && component.retain <= 0) {
-      continue;
-    }
-    if ("insert" in component && component.insert.length === 0) {
-      continue;
-    }
-    if ("delete" in component && component.delete <= 0) {
-      continue;
-    }
+    if ("retain" in component && component.retain <= 0) continue;
+    if ("insert" in component && component.insert.length === 0) continue;
+    if ("delete" in component && component.delete <= 0) continue;
 
     const last = normalized[normalized.length - 1];
     if (!last) {
@@ -50,15 +67,19 @@ export function normalizeOperation(operation: TextOperation): TextOperation {
       } else if (lastType === "delete") {
         (last as { delete: number }).delete += (component as { delete: number }).delete;
       }
-      continue;
+    } else {
+      normalized.push({ ...component });
     }
-
-    normalized.push({ ...component });
   }
 
   return normalized;
 }
 
+// ---------------- APPLY ----------------
+
+/**
+ * Applies a text operation to a string.
+ */
 export function applyOperation(content: string, operation: TextOperation): string {
   const normalized = normalizeOperation(operation);
   let cursor = 0;
@@ -83,6 +104,8 @@ export function applyOperation(content: string, operation: TextOperation): strin
   return result;
 }
 
+// ---------------- ITERATOR ----------------
+
 class OperationIterator {
   private index = 0;
   private offset = 0;
@@ -101,37 +124,31 @@ class OperationIterator {
   }
 
   peekLength(): number {
-    const component = this.op[this.index];
-    if (!component) return 0;
-    if ("retain" in component) {
-      return component.retain - this.offset;
-    }
-    if ("insert" in component) {
-      return component.insert.length - this.offset;
-    }
-    return component.delete - this.offset;
+    const comp = this.op[this.index];
+    if (!comp) return 0;
+    if ("retain" in comp) return comp.retain - this.offset;
+    if ("insert" in comp) return comp.insert.length - this.offset;
+    return comp.delete - this.offset;
   }
 
   next(length?: number): TextComponent | null {
-    const component = this.op[this.index];
-    if (!component) return null;
+    const comp = this.op[this.index];
+    if (!comp) return null;
 
     const available = this.peekLength();
     const consume = length ? Math.min(length, available) : available;
 
     let chunk: TextComponent;
-    if ("retain" in component) {
+    if ("retain" in comp) {
       chunk = { retain: consume };
-    } else if ("insert" in component) {
-      chunk = {
-        insert: component.insert.slice(this.offset, this.offset + consume),
-      };
+    } else if ("insert" in comp) {
+      chunk = { insert: comp.insert.slice(this.offset, this.offset + consume) };
     } else {
       chunk = { delete: consume };
     }
 
     this.offset += consume;
-    if (this.offset >= componentLength(component)) {
+    if (this.offset >= componentLength(comp)) {
       this.index += 1;
       this.offset = 0;
     }
@@ -140,6 +157,11 @@ class OperationIterator {
   }
 }
 
+// ---------------- TRANSFORM ----------------
+
+/**
+ * Transforms one operation against another concurrent operation.
+ */
 export function transformOperation(
   operation: TextOperation,
   against: TextOperation,
@@ -155,6 +177,7 @@ export function transformOperation(
       result.push(component);
       return;
     }
+
     const lastType = componentType(last);
     const nextType = componentType(component);
     if (lastType === nextType) {
@@ -165,9 +188,9 @@ export function transformOperation(
       } else if (lastType === "delete") {
         (last as { delete: number }).delete += (component as { delete: number }).delete;
       }
-      return;
+    } else {
+      result.push(component);
     }
-    result.push(component);
   };
 
   while (iterator.hasNext()) {
@@ -221,17 +244,20 @@ export function transformOperation(
   return normalizeOperation(result);
 }
 
-export function diffToOperation(before: string, after: string): TextOperation {
-  if (before === after) {
-    return [];
-  }
+// ---------------- DIFF ----------------
 
+/**
+ * Generates an operation that transforms one string into another.
+ */
+export function diffToOperation(before: string, after: string): TextOperation {
+  if (before === after) return [];
+
+  // find common prefix
   let start = 0;
   const minLength = Math.min(before.length, after.length);
-  while (start < minLength && before[start] === after[start]) {
-    start += 1;
-  }
+  while (start < minLength && before[start] === after[start]) start++;
 
+  // find common suffix
   let endBefore = before.length;
   let endAfter = after.length;
   while (
@@ -239,29 +265,21 @@ export function diffToOperation(before: string, after: string): TextOperation {
     endAfter > start &&
     before[endBefore - 1] === after[endAfter - 1]
   ) {
-    endBefore -= 1;
-    endAfter -= 1;
+    endBefore--;
+    endAfter--;
   }
 
   const operation: TextOperation = [];
-  if (start > 0) {
-    operation.push({ retain: start });
-  }
+  if (start > 0) operation.push({ retain: start });
 
   const deleteCount = endBefore - start;
-  if (deleteCount > 0) {
-    operation.push({ delete: deleteCount });
-  }
+  if (deleteCount > 0) operation.push({ delete: deleteCount });
 
   const insertText = after.slice(start, endAfter);
-  if (insertText.length > 0) {
-    operation.push({ insert: insertText });
-  }
+  if (insertText.length > 0) operation.push({ insert: insertText });
 
   const tailRetain = before.length - endBefore;
-  if (tailRetain > 0) {
-    operation.push({ retain: tailRetain });
-  }
+  if (tailRetain > 0) operation.push({ retain: tailRetain });
 
   return normalizeOperation(operation);
 }

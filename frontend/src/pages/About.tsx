@@ -1,12 +1,47 @@
+/**
+ * About Page
+ * ------------
+ * Introduces CodeTogether’s mission, values, and roadmap.
+ *
+ * Features:
+ * - Hero section summarizing the platform’s vision
+ * - Statistics panel highlighting growth and activity
+ * - Core pillars representing product philosophy
+ * - Roadmap preview showing upcoming quarterly features
+ * - Culture section outlining team values and work ethic
+ * - Final CTA inviting visitors to join or log in
+ *
+ * Components:
+ * - Uses static constants (STATS, ROADMAP, PILLARS, CULTURE)
+ *   for maintainable structured content.
+ */
+
 import { Link } from "react-router-dom";
 import "../styles/about.css";
 
+/**
+ * STATS
+ * ------
+ * Snapshot of the platform’s growth indicators.
+ * Each stat contains:
+ * - label: description of the metric
+ * - value: current state (string, not numeric for flexibility)
+ */
 const STATS = [
   { label: "Active projects", value: "Growing daily" },
   { label: "Community members", value: "Hundreds of users" },
   { label: "Collaborations completed", value: "Dozens of teams" },
 ];
 
+/**
+ * ROADMAP
+ * ---------
+ * Outlines CodeTogether’s quarterly development goals.
+ * Each roadmap entry includes:
+ * - quarter: time period label
+ * - title: concise feature name
+ * - summary: short description of planned improvement
+ */
 const ROADMAP = [
   {
     quarter: "Q1 2025",
@@ -25,6 +60,14 @@ const ROADMAP = [
   },
 ];
 
+/**
+ * PILLARS
+ * --------
+ * The three foundational values guiding product design.
+ * Each object includes:
+ * - title: value name
+ * - copy: brief explanation of its meaning and application
+ */
 const PILLARS = [
   {
     title: "Collaboration first",
@@ -40,6 +83,14 @@ const PILLARS = [
   },
 ];
 
+/**
+ * CULTURE
+ * --------
+ * Defines the internal values that shape how CodeTogether operates.
+ * Each item includes:
+ * - heading: principle title
+ * - body: supporting explanation
+ */
 const CULTURE = [
   {
     heading: "We learn by building",
@@ -55,10 +106,17 @@ const CULTURE = [
   },
 ];
 
+/**
+ * About Component
+ * -----------------
+ * Presents the mission, story, and cultural principles of CodeTogether.
+ * Structured with reusable sections for readability and future scalability.
+ */
 export default function About() {
   return (
     <div className="about-page">
       <div className="about-container">
+        {/* ------------------ Hero Section ------------------ */}
         <section className="about-hero">
           <div className="about-hero__copy">
             <p className="about-eyebrow">About CodeTogether</p>
@@ -77,6 +135,8 @@ export default function About() {
               </Link>
             </div>
           </div>
+
+          {/* Stats cards (dynamic layout-ready) */}
           <div className="about-hero__stats">
             {STATS.map((stat) => (
               <article key={stat.label} className="about-stat">
@@ -87,6 +147,7 @@ export default function About() {
           </div>
         </section>
 
+        {/* ------------------ Pillars Section ------------------ */}
         <section className="about-pillars">
           <header>
             <h2>Our core principles</h2>
@@ -105,6 +166,7 @@ export default function About() {
           </div>
         </section>
 
+        {/* ------------------ Story & Roadmap Section ------------------ */}
         <section className="about-story">
           <div className="about-story__panel">
             <h2>Our story</h2>
@@ -116,6 +178,7 @@ export default function About() {
               We’re still growing, improving, and listening to feedback from developers like you — one release at a time.
             </p>
           </div>
+
           <div className="about-roadmap">
             <header>
               <h3>What’s next</h3>
@@ -135,6 +198,7 @@ export default function About() {
           </div>
         </section>
 
+        {/* ------------------ Culture Section ------------------ */}
         <section className="about-culture">
           <header className="about-culture__header">
             <h2>How we work</h2>
@@ -150,6 +214,7 @@ export default function About() {
           </div>
         </section>
 
+        {/* ------------------ CTA Section ------------------ */}
         <section className="about-cta">
           <div className="about-cta__copy">
             <p className="about-eyebrow">Join the community</p>

@@ -1,3 +1,10 @@
+/**
+ * NotificationController
+ * -----------------------
+ * Handles API endpoints for managing user notifications.
+ * Supports creation, retrieval, update of read status, and deletion.
+ */
+
 import {
   BadRequestException,
   Body,
@@ -19,16 +26,25 @@ import {
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
+  /**
+   * Retrieve all notifications for a specific user.
+   */
   @Get('user/:userId')
   async getForUser(@Param('userId') userId: number) {
     return await this.notificationService.getNotificationsForUser(userId);
   }
 
+  /**
+   * Retrieve a notification by its ID.
+   */
   @Get(':id')
   async getById(@Param('id') id: number) {
     return await this.notificationService.getNotificationById(id);
   }
 
+  /**
+   * Create a new notification for a user.
+   */
   @Post()
   async create(@Body() createDto: CreateNotificationDto) {
     const { recipientId, message, type, metadata } = createDto;
@@ -42,6 +58,9 @@ export class NotificationController {
     );
   }
 
+  /**
+   * Update the read/unread status of a notification.
+   */
   @Put(':id')
   async updateStatus(
     @Param('id') id: number,
@@ -53,6 +72,10 @@ export class NotificationController {
     return await this.notificationService.markNotificationStatus(id, is_read);
   }
 
+  /**
+   * Delete a notification by its ID.
+   * Throws 404 if notification not found.
+   */
   @Delete(':id')
   async remove(@Param('id') id: number) {
     const removed = await this.notificationService.removeNotification(id);

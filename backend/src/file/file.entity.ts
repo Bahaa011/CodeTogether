@@ -1,3 +1,10 @@
+/**
+ * File Entity
+ * ------------
+ * Represents a single file within a project.
+ * Stores file content, metadata, and its relationships with project, user and versions.
+ */
+
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -10,39 +17,35 @@ import {
 import { Project } from '../project/project.entity';
 import { User } from '../user/user.entity';
 import { Version } from '../version/version.entity';
-import { Comment } from '../comment/comment.entity';
 
 @Entity('files')
 export class File {
   @PrimaryGeneratedColumn()
-  id: number;
+  id: number; // Primary key
 
   @Column()
-  filename: string;
+  filename: string; // Name of the file
 
   @Column()
-  file_type: string;
+  file_type: string; // File type or extension (e.g., .ts, .js, .py)
 
   @Column('text')
-  content: string;
+  content: string; // File content stored as text
 
   @CreateDateColumn()
-  created_at: Date;
+  created_at: Date; // Timestamp when the file was created
 
   @UpdateDateColumn()
-  updated_at: Date;
+  updated_at: Date; // Timestamp when the file was last updated
 
-  // Relations
+  // ---------- Relations ----------
+
   @ManyToOne(() => Project, (project) => project.files, { onDelete: 'CASCADE' })
-  project: Project;
+  project: Project; // Project this file belongs to
 
   @ManyToOne(() => User, (user) => user.files, { onDelete: 'SET NULL' })
-  uploader: User;
+  uploader: User; // User who uploaded or created the file
 
   @OneToMany(() => Version, (version) => version.file)
-  versions: Version[];
-
-  @OneToMany(() => Comment, (comment) => comment.file)
-  comments: Comment[];
-
+  versions: Version[]; // All saved versions of this file
 }

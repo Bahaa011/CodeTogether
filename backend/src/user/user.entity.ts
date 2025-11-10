@@ -1,9 +1,16 @@
+/**
+ * User Entity
+ * ------------
+ * Represents a registered user in the CodeTogether platform.
+ * Stores authentication, profile, and relationship data.
+ */
+
 import {
   Entity,
   Column,
   PrimaryGeneratedColumn,
   CreateDateColumn,
-  OneToMany
+  OneToMany,
 } from 'typeorm';
 import { Project } from '../project/project.entity';
 import { File } from '../file/file.entity';
@@ -11,37 +18,38 @@ import { Collaborator } from '../collaborator/collaborator.entity';
 import { Session } from '../session/session.entity';
 import { Version } from '../version/version.entity';
 import { Notification } from '../notification/notification.entity';
-import { Comment } from '../comment/comment.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn()
-  id: number;
+  id: number; // Primary key
 
   @Column({ unique: true })
-  username: string;
+  username: string; // Unique display name
 
   @Column({ unique: true })
-  email: string;
+  email: string; // Unique user email
 
   @Column()
-  password_hash: string;
+  password_hash: string; // Hashed password
 
   @Column({ nullable: true })
-  avatar_url: string;
+  avatar_url: string; // Optional profile picture URL
 
   @Column({ nullable: true })
-  bio: string;
+  bio: string; // Optional user bio
 
   @CreateDateColumn()
-  created_at: Date;
+  created_at: Date; // Auto-generated timestamp when user is created
 
-  @Column({ type: 'text' ,nullable: true })
+  // Password reset fields
+  @Column({ type: 'text', nullable: true })
   reset_token: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   reset_token_expiry: Date | null;
 
+  // Multi-Factor Authentication fields
   @Column({ default: false })
   mfa_enabled: boolean;
 
@@ -57,24 +65,22 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   mfa_pending_token_expires_at: Date | null;
 
+  // Relations
   @OneToMany(() => Project, (project) => project.owner)
-  projects: Project[];
+  projects: Project[]; // Projects owned by the user
 
   @OneToMany(() => File, (file) => file.uploader)
-  files: File[];
+  files: File[]; // Files uploaded by the user
 
   @OneToMany(() => Collaborator, (collab) => collab.user)
-  collaborations: Collaborator[];
+  collaborations: Collaborator[]; // Collaborations the user is part of
 
   @OneToMany(() => Session, (session) => session.user)
-  sessions: Session[];
+  sessions: Session[]; // Active or past user sessions
 
   @OneToMany(() => Version, (version) => version.user)
-  versions: Version[];
+  versions: Version[]; // File versions created by the user
 
   @OneToMany(() => Notification, (notification) => notification.recipient)
-  notifications: Notification[];
-
-  @OneToMany(() => Comment, (comment) => comment.author)
-  comments: Comment[];
+  notifications: Notification[]; // Notifications received by the user
 }

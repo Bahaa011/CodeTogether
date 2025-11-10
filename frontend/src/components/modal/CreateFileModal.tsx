@@ -1,6 +1,33 @@
+/**
+ * CreateFileModal Component
+ * ----------------------------
+ * A modal dialog that allows users to create a new file within
+ * an existing project. Designed for simplicity and quick workflow.
+ *
+ * Responsibilities:
+ * - Display filename and optional content fields.
+ * - Handle validation, submission, and error display.
+ * - Integrate with the backend file creation service via `onCreate`.
+ *
+ * Context:
+ * Typically opened from the project workspace sidebar when
+ * clicking the “+” button under the Explorer section.
+ * Uses the shared `Modal` component for consistent layout and accessibility.
+ */
+
 import Modal from "./Modal";
 import { useCreateFileModal } from "../../hooks/useCreateModals";
 
+/**
+ * CreateFileModalProps
+ * ----------------------
+ * Props accepted by the CreateFileModal component.
+ *
+ * - open: Whether the modal is visible.
+ * - onClose: Callback to close the modal.
+ * - onCreate: Async handler that receives `{ filename, content }` for file creation.
+ * - disabled: Optional flag to prevent input and submission.
+ */
 type CreateFileModalProps = {
   open: boolean;
   onClose(): void;
@@ -8,12 +35,28 @@ type CreateFileModalProps = {
   disabled?: boolean;
 };
 
+/**
+ * CreateFileModal
+ * ----------------
+ * Provides a minimal form for creating a new file inside a project.
+ * Supports optional initial content, validation, and async submission.
+ */
 export default function CreateFileModal({
   open,
   onClose,
   onCreate,
   disabled = false,
 }: CreateFileModalProps) {
+  /**
+   * Hook: useCreateFileModal
+   * -------------------------
+   * Manages local state and form submission logic.
+   * - filename: Bound to filename input field.
+   * - content: Optional text content for new file.
+   * - submitting: Async in-progress flag.
+   * - error: Error message for validation or API failure.
+   * - handleSubmit: Form submission handler.
+   */
   const {
     filename,
     setFilename,
@@ -31,6 +74,7 @@ export default function CreateFileModal({
       title="Create File"
       footer={
         <div className="modal-actions">
+          {/* Cancel button */}
           <button
             type="button"
             onClick={onClose}
@@ -39,6 +83,8 @@ export default function CreateFileModal({
           >
             Cancel
           </button>
+
+          {/* Create button */}
           <button
             type="submit"
             form="create-file-form"
@@ -50,12 +96,11 @@ export default function CreateFileModal({
         </div>
       }
     >
+      {/* File creation form */}
       <form id="create-file-form" onSubmit={handleSubmit} className="modal-form">
+        {/* ---- Filename ---- */}
         <div className="modal-field">
-          <label
-            htmlFor="file-name"
-            className="modal-field__label"
-          >
+          <label htmlFor="file-name" className="modal-field__label">
             Filename
           </label>
           <input
@@ -70,11 +115,9 @@ export default function CreateFileModal({
           />
         </div>
 
+        {/* ---- Optional Content ---- */}
         <div className="modal-field">
-          <label
-            htmlFor="file-content"
-            className="modal-field__label"
-          >
+          <label htmlFor="file-content" className="modal-field__label">
             Initial Content (optional)
           </label>
           <textarea
@@ -90,9 +133,8 @@ export default function CreateFileModal({
           </p>
         </div>
 
-        {error && (
-          <p className="modal-error">{error}</p>
-        )}
+        {/* ---- Error Feedback ---- */}
+        {error && <p className="modal-error">{error}</p>}
       </form>
     </Modal>
   );

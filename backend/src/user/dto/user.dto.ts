@@ -6,6 +6,9 @@ import {
   MinLength,
 } from 'class-validator';
 
+/**
+ * DTO for user registration requests.
+ */
 export class RegisterUserDto {
   @IsString()
   username: string;
@@ -18,6 +21,10 @@ export class RegisterUserDto {
   password: string;
 }
 
+/**
+ * DTO for updating user profile details.
+ * All fields are optional.
+ */
 export class UpdateUserProfileDto {
   @IsOptional()
   @IsString()

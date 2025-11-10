@@ -1,3 +1,16 @@
+/**
+ * useProfileData Hooks Suite
+ *
+ * A collection of hooks responsible for fetching, managing, and updating
+ * user profile data — both private (authenticated user) and public (viewed profiles).
+ *
+ * Responsibilities:
+ * - Retrieve and synchronize the logged-in user's profile.
+ * - Fetch and aggregate portfolio data (projects, collaborations, sessions).
+ * - Handle profile updates and avatar uploads.
+ * - Provide a public-facing hook for viewing another user’s profile and work.
+ */
+
 import { useCallback, useEffect, useState } from "react";
 import { fetchProfile } from "../services/authService";
 import {
@@ -27,12 +40,26 @@ import {
   type StoredUser,
 } from "../utils/auth";
 
+/**
+ * ProfileStats
+ *
+ * Represents the numerical statistics displayed on a user’s profile.
+ * - projects: Number of owned projects.
+ * - collaborations: Number of projects where the user collaborates.
+ * - sessions: Number of long coding sessions by the user.
+ */
 export type ProfileStats = {
   projects: number;
   collaborations: number;
   sessions: number;
 };
 
+/**
+ * ProfilePortfolioState
+ *
+ * Captures the full data state of a user's portfolio,
+ * including loading/error flags and project/collaboration lists.
+ */
 type ProfilePortfolioState = {
   stats: ProfileStats;
   statsLoading: boolean;
@@ -45,12 +72,25 @@ type ProfilePortfolioState = {
   collaborationsError: string | null;
 };
 
+/**
+ * UseProfilePortfolioOptions
+ *
+ * Options controlling when and how to fetch portfolio data.
+ * - userId: ID of the user to fetch data for.
+ * - enabled: Whether data fetching is active.
+ * - errorMessage: Optional custom error message.
+ */
 type UseProfilePortfolioOptions = {
   userId: number | null;
   enabled: boolean;
   errorMessage?: string;
 };
 
+/**
+ * UseProfileDataResult
+ *
+ * Combines user account info, portfolio data, and profile mutation handlers.
+ */
 type UseProfileDataResult = {
   hasToken: boolean;
   user: StoredUser | null;
@@ -64,12 +104,26 @@ type UseProfileDataResult = {
     handleUploadAvatar(file: File): Promise<string>;
   };
 
+/**
+ * UsePublicProfileDataResult
+ *
+ * Public-facing read-only version of user profile and portfolio data.
+ */
 type UsePublicProfileDataResult = {
   user: PublicUserProfile | null;
   loading: boolean;
   error: string | null;
 } & ProfilePortfolioState;
 
+/**
+ * useProfilePortfolio
+ *
+ * Internal helper hook responsible for fetching a user's portfolio:
+ * - Project and collaboration lists.
+ * - Aggregate statistics (projects, collaborations, sessions).
+ *
+ * Automatically resets when disabled or `userId` is null.
+ */
 function useProfilePortfolio({
   userId,
   enabled,
@@ -93,8 +147,13 @@ function useProfilePortfolio({
     null,
   );
 
+  /**
+   * Effect: Fetch all portfolio data (counts, projects, collaborations)
+   * when the hook is enabled and a valid user ID is provided.
+   */
   useEffect(() => {
     if (!enabled || !userId) {
+      // Reset all data when disabled
       setStats({ projects: 0, collaborations: 0, sessions: 0 });
       setStatsError(null);
       setStatsLoading(false);
@@ -111,12 +170,10 @@ function useProfilePortfolio({
 
     let cancelled = false;
     setStatsLoading(true);
-    setStatsError(null);
-
     setProjectsLoading(true);
-    setProjectsError(null);
-
     setCollaborationsLoading(true);
+    setStatsError(null);
+    setProjectsError(null);
     setCollaborationsError(null);
 
     const load = async () => {
@@ -134,6 +191,7 @@ function useProfilePortfolio({
           fetchProjectsByOwner(userId),
           fetchCollaborationsByUser(userId),
         ]);
+
         if (cancelled) return;
         setStats({
           projects: projectsCount,
@@ -149,8 +207,8 @@ function useProfilePortfolio({
         setStats({ projects: 0, collaborations: 0, sessions: 0 });
         setStatsError(message);
         setProjectsError(message);
-        setProjects([]);
         setCollaborationsError(message);
+        setProjects([]);
         setCollaborations([]);
       } finally {
         if (!cancelled) {
@@ -162,7 +220,6 @@ function useProfilePortfolio({
     };
 
     void load();
-
     return () => {
       cancelled = true;
     };
@@ -181,12 +238,26 @@ function useProfilePortfolio({
   };
 }
 
+/**
+ * useProfileData
+ *
+ * Hook for managing the currently authenticated user's full profile state.
+ *
+ * Responsibilities:
+ * - Sync login token state across tabs and localStorage.
+ * - Load, cache, and update user profile information.
+ * - Manage profile portfolio (projects, collaborations, sessions).
+ * - Handle profile updates and avatar uploads.
+ */
 export function useProfileData(): UseProfileDataResult {
   const [hasToken, setHasToken] = useState(() => Boolean(getToken()));
   const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
   const [loading, setLoading] = useState(() => hasToken && !user);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Effect: Keep token state synchronized across tabs and events.
+   */
   useEffect(() => {
     const syncTokenState = () => {
       const tokenPresent = Boolean(getToken());
@@ -200,13 +271,16 @@ export function useProfileData(): UseProfileDataResult {
 
     window.addEventListener(AUTH_TOKEN_EVENT, syncTokenState);
     window.addEventListener("storage", syncTokenState);
-
     return () => {
       window.removeEventListener(AUTH_TOKEN_EVENT, syncTokenState);
       window.removeEventListener("storage", syncTokenState);
     };
   }, []);
 
+  /**
+   * Effect: Fetch authenticated user's profile from API.
+   * Falls back to local storage cache if available.
+   */
   useEffect(() => {
     if (!hasToken) {
       setUser(null);
@@ -217,9 +291,7 @@ export function useProfileData(): UseProfileDataResult {
 
     let cancelled = false;
     const cachedUser = getStoredUser();
-    if (!cachedUser) {
-      setLoading(true);
-    }
+    if (!cachedUser) setLoading(true);
 
     const loadProfile = async () => {
       try {
@@ -238,24 +310,23 @@ export function useProfileData(): UseProfileDataResult {
         setRole(null);
         setHasToken(false);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
     void loadProfile();
-
     return () => {
       cancelled = true;
     };
   }, [hasToken]);
 
+  // Fetch portfolio statistics for authenticated user
   const portfolio = useProfilePortfolio({
     userId: user?.id ?? null,
     enabled: hasToken && Boolean(user?.id),
   });
 
+  /** Logs out the user and clears local authentication state. */
   const handleLogout = useCallback(() => {
     removeToken();
     setStoredUser(null);
@@ -264,11 +335,14 @@ export function useProfileData(): UseProfileDataResult {
     setHasToken(false);
   }, []);
 
+  /**
+   * handleSaveProfile
+   *
+   * Updates the authenticated user's bio or avatar URL.
+   */
   const handleSaveProfile = useCallback(
     async (updates: { bio?: string; avatar_url?: string | null }) => {
-      if (!user?.id) {
-        throw new Error("Unable to update profile without a user ID.");
-      }
+      if (!user?.id) throw new Error("Unable to update profile without a user ID.");
       const updatedUser = await updateUserProfile(user.id, updates);
       const mergedUser = { ...user, ...updatedUser };
       setUser(mergedUser);
@@ -277,11 +351,15 @@ export function useProfileData(): UseProfileDataResult {
     [user],
   );
 
+  /**
+   * handleUploadAvatar
+   *
+   * Uploads a new avatar image and updates user data.
+   * Returns the uploaded avatar URL.
+   */
   const handleUploadAvatar = useCallback(
     async (file: File) => {
-      if (!user?.id) {
-        throw new Error("Unable to upload avatar without a user ID.");
-      }
+      if (!user?.id) throw new Error("Unable to upload avatar without a user ID.");
       const updatedUser = await uploadUserAvatar(user.id, file);
       setUser(updatedUser);
       setStoredUser(updatedUser);
@@ -302,6 +380,17 @@ export function useProfileData(): UseProfileDataResult {
   };
 }
 
+/**
+ * useUserProfileData
+ *
+ * Fetches and displays another user's public profile and portfolio.
+ * Ideal for viewing user pages or collaborator profiles.
+ *
+ * Responsibilities:
+ * - Retrieve user data via ID.
+ * - Fetch public-facing portfolio (projects, collaborations, sessions).
+ * - Handle loading and error states for missing/deleted users.
+ */
 export function useUserProfileData(
   userId?: number | null,
 ): UsePublicProfileDataResult {
@@ -310,6 +399,9 @@ export function useUserProfileData(
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Effect: Load the target user's public profile.
+   */
   useEffect(() => {
     if (!isValidId || !userId) {
       setUser(null);
@@ -339,19 +431,17 @@ export function useUserProfileData(
         setError(message);
         setUser(null);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
     void loadUser();
-
     return () => {
       cancelled = true;
     };
   }, [isValidId, userId]);
 
+  // Fetch public portfolio data for this user
   const portfolio = useProfilePortfolio({
     userId: user?.id ?? null,
     enabled: Boolean(user?.id),

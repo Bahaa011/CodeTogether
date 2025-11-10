@@ -1,5 +1,8 @@
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
+/**
+ * DTO for creating a new project tag.
+ */
 export class CreateProjectTagDto {
   @IsString()
   @IsNotEmpty()
@@ -10,6 +13,9 @@ export class CreateProjectTagDto {
   projectId: number;
 }
 
+/**
+ * DTO for updating an existing project tag.
+ */
 export class UpdateProjectTagDto {
   @IsOptional()
   @IsString()

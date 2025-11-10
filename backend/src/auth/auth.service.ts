@@ -1,3 +1,11 @@
+/**
+ * AuthService
+ * -------------
+ * Handles all authentication logic including login, password resets, JWT management,
+ * and multi-factor authentication (MFA) flow. Integrates with the UserService and
+ * Nodemailer for secure email-based actions.
+ */
+
 import {
   Injectable,
   UnauthorizedException,
@@ -17,7 +25,9 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  // Validate user credentials
+  /**
+   * Validate a user's credentials using email and password.
+   */
   async validateUser(email: string, password: string) {
     const user = await this.userService.getUserByEmail(email);
     if (!user) throw new UnauthorizedException('Invalid email or password.');
@@ -26,12 +36,13 @@ export class AuthService {
     if (!isPasswordValid)
       throw new UnauthorizedException('Invalid email or password.');
 
-    // Don’t return password hash
     const { password_hash, ...safeUser } = user;
     return safeUser;
   }
 
-  // Generate JWT for a user
+  /**
+   * Authenticate a user and return a session or MFA challenge if enabled.
+   */
   async login(email: string, password: string) {
     const user = await this.validateUser(email, password);
 
@@ -42,6 +53,9 @@ export class AuthService {
     return this.issueSession(user);
   }
 
+  /**
+   * Retrieve the profile of an authenticated user.
+   */
   async getProfile(userId: number) {
     const user = await this.userService.getUserById(userId);
     if (!user) throw new NotFoundException('User not found.');
@@ -49,6 +63,9 @@ export class AuthService {
     return safeUser;
   }
 
+  /**
+   * Send a password reset email to a user.
+   */
   async requestPasswordReset(email: string) {
     const user = await this.userService.getUserByEmail(email);
     if (!user) return null;
@@ -61,7 +78,7 @@ export class AuthService {
     const resetLink = `${frontendUrl.replace(/\/+$/, '')}/reset-password?token=${token}`;
 
     const transporter = nodemailer.createTransport({
-      service: 'gmail', // can be smtp, sendgrid, etc.
+      service: 'gmail',
       auth: {
         user: process.env.MAIL_USER || 'diaaghamrawi2@gmail.com',
         pass: process.env.MAIL_PASS || 'ohsx dvww ctlv hopa ',
@@ -90,11 +107,13 @@ export class AuthService {
       return { message: 'Password reset email sent successfully' };
     } catch (err) {
       console.error('❌ Error sending email:', err);
-      // In dev, still return the link for testing
       return { message: 'Email sending failed, showing reset link instead', resetLink };
     }
   }
 
+  /**
+   * Reset a user's password using a valid reset token.
+   */
   async resetPassword(token: string, newPassword: string) {
     const user = await this.userService.getUserByResetToken(token);
     if (!user) return null;
@@ -103,15 +122,19 @@ export class AuthService {
     return this.userService.updatePassword(user.id, newPassword);
   }
 
+  /**
+   * Enable or disable multi-factor authentication (MFA) for a user.
+   */
   async toggleMfa(userId: number, enabled: boolean) {
     const updated = await this.userService.setMfaStatus(userId, enabled);
-    if (!updated) {
-      throw new NotFoundException('User not found');
-    }
+    if (!updated) throw new NotFoundException('User not found');
     const { password_hash, ...safeUser } = updated;
     return safeUser;
   }
 
+  /**
+   * Verify an MFA code and issue a session token if valid.
+   */
   async verifyMfaCode(token: string, code: string) {
     if (!token || !code) {
       throw new BadRequestException('Token and code are required.');
@@ -122,10 +145,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired verification token.');
     }
 
-    if (
-      !user.mfa_pending_token_expires_at ||
-      user.mfa_pending_token_expires_at < new Date()
-    ) {
+    if (!user.mfa_pending_token_expires_at || user.mfa_pending_token_expires_at < new Date()) {
       await this.userService.clearMfaChallenge(user.id);
       throw new UnauthorizedException('Verification code expired. Please sign in again.');
     }
@@ -135,14 +155,15 @@ export class AuthService {
     }
 
     const isMatch = await bcrypt.compare(code, user.mfa_code);
-    if (!isMatch) {
-      throw new UnauthorizedException('Incorrect verification code.');
-    }
+    if (!isMatch) throw new UnauthorizedException('Incorrect verification code.');
 
     await this.userService.clearMfaChallenge(user.id);
     return this.issueSession(user);
   }
 
+  /**
+   * Begin an MFA challenge for a user by sending an OTP via email.
+   */
   private async initiateMfaChallenge(user: any) {
     const otp = this.generateOtp();
     const hashedOtp = await bcrypt.hash(otp, 10);
@@ -159,6 +180,9 @@ export class AuthService {
     };
   }
 
+  /**
+   * Generate and sign a JWT access token for the authenticated user.
+   */
   private issueSession(user: any) {
     const payload = { sub: user.id, email: user.email };
     const token = this.jwtService.sign(payload);
@@ -166,11 +190,16 @@ export class AuthService {
     return { access_token: token, user: safeUser };
   }
 
+  /**
+   * Generate a 6-digit one-time passcode (OTP).
+   */
   private generateOtp() {
-    const code = Math.floor(100000 + Math.random() * 900000);
-    return String(code);
+    return String(Math.floor(100000 + Math.random() * 900000));
   }
 
+  /**
+   * Send an OTP email to the user for MFA verification.
+   */
   private async sendOtpEmail(to: string, username: string, code: string) {
     const transporter = nodemailer.createTransport({
       service: 'gmail',
@@ -205,6 +234,9 @@ export class AuthService {
     }
   }
 
+  /**
+   * Build a styled HTML email template for actions such as MFA or password reset.
+   */
   private buildEmailTemplate({
     title,
     greeting,
@@ -245,7 +277,7 @@ export class AuthService {
       .join('');
 
     return `
-      <div style="background:#0b1220;padding:32px 0;font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+      <div style="background:#0b1220;padding:32px 0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;">
         <div style="max-width:520px;margin:0 auto;background:#111827;border:1px solid rgba(148,163,184,0.2);border-radius:18px;padding:32px;">
           <div style="text-align:center;margin-bottom:1.5rem;">
             <p style="margin:0;font-size:0.85rem;letter-spacing:0.2em;text-transform:uppercase;color:#38bdf8;">CodeTogether</p>

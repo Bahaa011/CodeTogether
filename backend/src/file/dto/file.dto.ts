@@ -1,5 +1,8 @@
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
+/**
+ * DTO for creating a new file within a project.
+ */
 export class CreateFileDto {
   @IsString()
   @IsNotEmpty()
@@ -22,6 +25,9 @@ export class CreateFileDto {
   uploaderId: number;
 }
 
+/**
+ * DTO for updating an existing file.
+ */
 export class UpdateFileDto {
   @IsOptional()
   @IsString()

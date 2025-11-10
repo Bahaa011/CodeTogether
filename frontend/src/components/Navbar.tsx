@@ -1,3 +1,23 @@
+/**
+ * Navbar Component
+ * -----------------
+ * Global navigation bar for the CodeTogether web application.
+ *
+ * Responsibilities:
+ * - Display primary navigation links (Explore, Profile, Playground, About).
+ * - Handle authenticated and unauthenticated states.
+ * - Provide a unified interface for search, notifications, and user account actions.
+ * - Manage dropdowns, modals, and search results through the useNavbar hook.
+ *
+ * Context:
+ * This component is present across all authenticated and public pages.
+ * It integrates multiple systems:
+ *  - Notifications (with invite management)
+ *  - Project/user search
+ *  - Account dropdown
+ *  - Session-based state from useNavbar()
+ */
+
 import { Bell, Plus, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import type { NotificationMetadata } from "../services/notificationService";
@@ -5,28 +25,69 @@ import "../styles/navbar.css";
 import { resolveAssetUrl } from "../utils/url";
 import { useNavbar } from "../hooks/useNavbar";
 
+/**
+ * navLinks
+ * ----------
+ * Defines the static top-level navigation links shown on the left side of the navbar.
+ */
 const navLinks = [
   { label: "Explore", path: "/explore" },
-  { label: "Profile", path: "/profile"},
+  { label: "Profile", path: "/profile" },
   { label: "Playground", path: "/playground" },
   { label: "About", path: "/about" },
 ];
 
+/**
+ * isActivePath
+ * --------------
+ * Helper function to check if the current location path matches a nav link.
+ * Used to visually highlight the active route.
+ */
 function isActivePath(current: string, target: string) {
   if (target === "/") {
     return current === "/";
   }
-
   return current.startsWith(target);
 }
 
+/**
+ * NavbarProps
+ * -------------
+ * Props accepted by the Navbar component.
+ *
+ * - onCreateProject: Optional callback fired when the "New Project" button is clicked.
+ *   If omitted, it defaults to navigating to `/projects/new`.
+ */
 export type NavbarProps = {
   onCreateProject?(): void;
 };
 
+/**
+ * Navbar
+ * -------
+ * The main site navigation component that manages:
+ * - Navigation between routes.
+ * - Search functionality (projects/users).
+ * - Notifications (including collaboration invites).
+ * - Account avatar dropdown with profile/settings/logout actions.
+ *
+ * Uses the `useNavbar()` hook to encapsulate all event handlers, state management,
+ * and asynchronous logic for searching, notifications, and UI toggles.
+ */
 export default function Navbar(props: NavbarProps = {}) {
   const { onCreateProject } = props;
   const navigate = useNavigate();
+
+  /**
+   * Hook: useNavbar
+   * ----------------
+   * Provides all the state and logic for:
+   * - User authentication status
+   * - Active route
+   * - Notifications
+   * - Search results and types
+   * - Menu toggling and UI event handling
+   */
   const {
     locationPath,
     user,
@@ -70,6 +131,7 @@ export default function Navbar(props: NavbarProps = {}) {
   return (
     <nav className="navbar">
       <div className="navbar__container">
+        {/* ---------------- Brand + Navigation Links ---------------- */}
         <div className="navbar__brand">
           <button
             type="button"
@@ -104,6 +166,7 @@ export default function Navbar(props: NavbarProps = {}) {
           )}
         </div>
 
+        {/* ---------------- Search Bar ---------------- */}
         <div className="navbar__search-wrapper" ref={searchContainerRef}>
           <div className="navbar__search">
             <span className="navbar__search-icon">
@@ -134,6 +197,7 @@ export default function Navbar(props: NavbarProps = {}) {
             )}
           </div>
 
+          {/* Search results panel */}
           {isSearchOpen && (
             <div className="navbar__search-panel">
               <div className="navbar__search-switch">
@@ -161,6 +225,7 @@ export default function Navbar(props: NavbarProps = {}) {
                 </button>
               </div>
 
+              {/* Dynamic search result states */}
               <div className="navbar__search-results">
                 {searchLoading ? (
                   <p className="navbar__search-status">Searching…</p>
@@ -187,6 +252,7 @@ export default function Navbar(props: NavbarProps = {}) {
                           className="navbar__search-result"
                           onClick={() => handleSearchSelect(result)}
                         >
+                          {/* Avatar / icon for result */}
                           {result.type === "user" ? (
                             <span
                               className="navbar__search-result-avatar"
@@ -228,17 +294,16 @@ export default function Navbar(props: NavbarProps = {}) {
           )}
         </div>
 
+        {/* ---------------- Actions (Buttons, Notifications, Avatar) ---------------- */}
         <div className="navbar__actions">
           {isLoggedIn ? (
             <>
+              {/* New Project button */}
               <button
                 type="button"
                 onClick={() => {
-                  if (onCreateProject) {
-                    onCreateProject();
-                  } else {
-                    navigate("/projects/new");
-                  }
+                  if (onCreateProject) onCreateProject();
+                  else navigate("/projects/new");
                 }}
                 className="navbar__primary"
               >
@@ -246,6 +311,7 @@ export default function Navbar(props: NavbarProps = {}) {
                 New Project
               </button>
 
+              {/* Notifications dropdown */}
               <div className="navbar__notify-wrapper" ref={notificationRef}>
                 <button
                   type="button"
@@ -259,6 +325,7 @@ export default function Navbar(props: NavbarProps = {}) {
                   {unreadCount > 0 && <span className="navbar__dot" />}
                 </button>
 
+                {/* Notification panel */}
                 {isNotificationOpen && (
                   <div className="navbar__notifications" role="menu">
                     <div className="navbar__notifications-header">
@@ -300,6 +367,7 @@ export default function Navbar(props: NavbarProps = {}) {
                               ? "navbar__notification-item"
                               : "navbar__notification-item navbar__notification-item--unread";
 
+                            // Collaboration invite notifications
                             if (notification.type === "collaboration_invite") {
                               const metadata = (notification.metadata ??
                                 {}) as NotificationMetadata;
@@ -309,8 +377,8 @@ export default function Navbar(props: NavbarProps = {}) {
                                 typeof metadata.projectTitle === "string"
                                   ? metadata.projectTitle
                                   : typeof metadata.projectId === "number"
-                                    ? `Project #${metadata.projectId}`
-                                    : undefined;
+                                  ? `Project #${metadata.projectId}`
+                                  : undefined;
                               const isProcessing = processingInvites.includes(
                                 notification.id,
                               );
@@ -334,6 +402,7 @@ export default function Navbar(props: NavbarProps = {}) {
                                         {formatTimestamp(notification.created_at)}
                                       </span>
                                     </div>
+
                                     <div className="navbar__notification-actions">
                                       {status === "pending" ? (
                                         <>
@@ -398,6 +467,7 @@ export default function Navbar(props: NavbarProps = {}) {
                               );
                             }
 
+                            // Standard notifications
                             return (
                               <li key={notification.id} className={baseClass}>
                                 <button
@@ -424,6 +494,7 @@ export default function Navbar(props: NavbarProps = {}) {
                 )}
               </div>
 
+              {/* Avatar dropdown menu */}
               <div className="navbar__avatar-wrapper" ref={avatarRef}>
                 <button
                   type="button"
@@ -478,6 +549,7 @@ export default function Navbar(props: NavbarProps = {}) {
               </div>
             </>
           ) : (
+            /* Guest state buttons */
             <>
               <button
                 type="button"

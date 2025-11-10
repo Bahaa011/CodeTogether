@@ -1,16 +1,55 @@
+/**
+ * CreateProjectModal Component
+ * ------------------------------
+ * A modal dialog that enables users to create a new project workspace.
+ * Provides a form for entering project name, description, privacy settings,
+ * and selecting relevant tags.
+ *
+ * Responsibilities:
+ * - Render an accessible form wrapped in a shared Modal component.
+ * - Manage form state (title, description, visibility, tags) through custom hook logic.
+ * - Handle form submission and async creation flow via `useCreateProjectModal`.
+ *
+ * Context:
+ * Typically invoked when a user clicks the “New Project” button from the Navbar
+ * or Dashboard. The modal guides them through the initial setup of a CodeTogether project.
+ */
+
 import Modal from "./Modal";
 import TagSelect from "../TagSelect";
 import { useCreateProjectModal } from "../../hooks/useCreateModals";
 
+/**
+ * CreateProjectModalProps
+ * ------------------------
+ * Props accepted by the CreateProjectModal component.
+ *
+ * - open: Whether the modal is visible.
+ * - onClose: Function that closes the modal when cancelled or after successful creation.
+ */
 type CreateProjectModalProps = {
   open: boolean;
   onClose(): void;
 };
 
+/**
+ * CreateProjectModal
+ * -------------------
+ * Renders the new project creation flow in a modal interface.
+ * Integrates `useCreateProjectModal` for managing form state and submission logic.
+ */
 export default function CreateProjectModal({
   open,
   onClose,
 }: CreateProjectModalProps) {
+  /**
+   * Hook: useCreateProjectModal
+   * -----------------------------
+   * Centralized hook controlling the form’s internal logic:
+   * - Handles title, description, tags, and privacy state.
+   * - Provides async submission (`handleSubmit`) and validation handling.
+   * - Returns UI feedback flags (`submitting`, `error`).
+   */
   const {
     title,
     setTitle,
@@ -32,6 +71,7 @@ export default function CreateProjectModal({
       title="Create Project"
       footer={
         <div className="modal-actions">
+          {/* Cancel Button */}
           <button
             type="button"
             onClick={onClose}
@@ -40,6 +80,8 @@ export default function CreateProjectModal({
           >
             Cancel
           </button>
+
+          {/* Submit Button */}
           <button
             type="submit"
             form="create-project-form"
@@ -51,11 +93,13 @@ export default function CreateProjectModal({
         </div>
       }
     >
+      {/* Project Creation Form */}
       <form
         id="create-project-form"
         onSubmit={handleSubmit}
         className="modal-form"
       >
+        {/* ---- Project Name ---- */}
         <div className="modal-field">
           <label
             htmlFor="project-name"
@@ -75,6 +119,7 @@ export default function CreateProjectModal({
           />
         </div>
 
+        {/* ---- Description ---- */}
         <div className="modal-field">
           <label
             htmlFor="project-description"
@@ -92,6 +137,7 @@ export default function CreateProjectModal({
           />
         </div>
 
+        {/* ---- Privacy Option ---- */}
         <label className="modal-checkbox">
           <input
             type="checkbox"
@@ -102,6 +148,7 @@ export default function CreateProjectModal({
           Make project private
         </label>
 
+        {/* ---- Tags ---- */}
         <TagSelect
           selectedTags={selectedTags}
           onChange={setSelectedTags}
@@ -109,6 +156,7 @@ export default function CreateProjectModal({
           label="Add tags"
         />
 
+        {/* ---- Error Feedback ---- */}
         {error && (
           <p className="modal-error">{error}</p>
         )}

@@ -1,5 +1,17 @@
+/**
+ * Session API Service
+ * -------------------
+ * Handles frontend API interactions related to user sessions,
+ * including session creation, activity tracking, and termination.
+ */
+
 import { apiClient, buildAxiosError } from "./apiClient";
 
+/**
+ * SessionUser
+ * ------------
+ * Represents a simplified user object attached to a session.
+ */
 export type SessionUser = {
   id?: number | null;
   username?: string | null;
@@ -7,6 +19,11 @@ export type SessionUser = {
   avatar_url?: string | null;
 };
 
+/**
+ * ProjectSession
+ * ---------------
+ * Represents a project-related user session record.
+ */
 export type ProjectSession = {
   id: number;
   status: "active" | "idle" | "ended";
@@ -14,6 +31,11 @@ export type ProjectSession = {
   user?: SessionUser | null;
 };
 
+/**
+ * createSession
+ * --------------
+ * Starts a new session for a specific user and project.
+ */
 export async function createSession(input: {
   userId: number;
   projectId: number;
@@ -29,6 +51,11 @@ export async function createSession(input: {
   }
 }
 
+/**
+ * fetchActiveSessions
+ * --------------------
+ * Retrieves all currently active sessions for a specific project.
+ */
 export async function fetchActiveSessions(projectId: number) {
   try {
     const response = await apiClient.get<ProjectSession[]>(
@@ -40,6 +67,11 @@ export async function fetchActiveSessions(projectId: number) {
   }
 }
 
+/**
+ * endSession
+ * -----------
+ * Marks a user session as ended.
+ */
 export async function endSession(sessionId: number) {
   try {
     await apiClient.post("/sessions/end", {
@@ -50,6 +82,12 @@ export async function endSession(sessionId: number) {
   }
 }
 
+/**
+ * endSessionBeacon
+ * -----------------
+ * Sends a lightweight beacon request to end a session
+ * before page unload or navigation (optimized for background use).
+ */
 const API_BASE_URL = apiClient.defaults.baseURL ?? "";
 
 export function endSessionBeacon(sessionId: number): boolean {
@@ -69,6 +107,11 @@ export function endSessionBeacon(sessionId: number): boolean {
   }
 }
 
+/**
+ * fetchLongSessionCount
+ * ----------------------
+ * Retrieves the number of sessions with unusually long durations for a user.
+ */
 export async function fetchLongSessionCount(userId: number) {
   try {
     const response = await apiClient.get<{ count: number }>(

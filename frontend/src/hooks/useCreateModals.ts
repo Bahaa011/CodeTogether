@@ -1,3 +1,15 @@
+/**
+ * useCreateModals Hook Collection
+ *
+ * Provides reusable logic for "Create Project" and "Create File" modal workflows.
+ *
+ * Responsibilities:
+ * - Manage modal form state (inputs, validation, and submission).
+ * - Reset fields when the modal closes.
+ * - Handle async actions (e.g., API requests to create a project or file).
+ * - Provide consistent error handling and state updates across both modals.
+ */
+
 import {
   useCallback,
   useEffect,
@@ -8,17 +20,12 @@ import { useNavigate } from "react-router-dom";
 import { createProject } from "../services/projectService";
 import { getStoredUser } from "../utils/auth";
 
-type UseCreateProjectModalOptions = {
-  open: boolean;
-  onClose(): void;
-};
-
-type UseCreateFileModalOptions = {
-  open: boolean;
-  disabled?: boolean;
-  onCreate(input: { filename: string; content: string }): Promise<void>;
-};
-
+/**
+ * useModalReset
+ *
+ * Resets modal form state when the modal is closed.
+ * Used by both the project and file creation modals.
+ */
 function useModalReset(open: boolean, reset: () => void) {
   useEffect(() => {
     if (!open) {
@@ -27,10 +34,24 @@ function useModalReset(open: boolean, reset: () => void) {
   }, [open, reset]);
 }
 
+/**
+ * useCreateProjectModal
+ *
+ * Handles logic for creating new projects via the CreateProjectModal component.
+ *
+ * Returns:
+ * - title, description, isPrivate, selectedTags → Controlled form fields.
+ * - error → Any validation or server error message.
+ * - submitting → Whether the create action is currently in progress.
+ * - handleSubmit → Submits the form and creates a new project.
+ */
 export function useCreateProjectModal({
   open,
   onClose,
-}: UseCreateProjectModalOptions) {
+}: {
+  open: boolean;
+  onClose(): void;
+}) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -39,6 +60,7 @@ export function useCreateProjectModal({
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
+  // Resets all fields when modal closes
   const resetForm = useCallback(() => {
     setTitle("");
     setDescription("");
@@ -50,6 +72,7 @@ export function useCreateProjectModal({
 
   useModalReset(open, resetForm);
 
+  // Handles the project creation process
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitting) return;
@@ -111,16 +134,32 @@ export function useCreateProjectModal({
   };
 }
 
+/**
+ * useCreateFileModal
+ *
+ * Handles logic for creating new files within a project via the CreateFileModal component.
+ *
+ * Returns:
+ * - filename, content → Controlled form fields for file creation.
+ * - error → Any validation or API error.
+ * - submitting → Whether the file creation is in progress.
+ * - handleSubmit → Handles file creation logic with validation and reset.
+ */
 export function useCreateFileModal({
   open,
   disabled = false,
   onCreate,
-}: UseCreateFileModalOptions) {
+}: {
+  open: boolean;
+  disabled?: boolean;
+  onCreate(input: { filename: string; content: string }): Promise<void>;
+}) {
   const [filename, setFilename] = useState("");
   const [content, setContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Reset fields when modal closes
   const resetForm = useCallback(() => {
     setFilename("");
     setContent("");
@@ -130,6 +169,7 @@ export function useCreateFileModal({
 
   useModalReset(open, resetForm);
 
+  // Handles the file creation process
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (submitting) return;

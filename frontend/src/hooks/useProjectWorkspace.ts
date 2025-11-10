@@ -1,3 +1,15 @@
+/**
+ * useProjectWorkspace
+ * ---------------------------------------------------------
+ * Central orchestrator hook for managing a user's active
+ * workspace in a CodeTogether project. Handles:
+ * - Project metadata fetching and edit permissions
+ * - File operations and synchronization
+ * - Realtime collaboration (Socket.IO presence, editing)
+ * - Session management for connected users
+ * - UI state for modals, banners, and execution
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { useProjectEditor } from "./useProjectEditor";
@@ -14,7 +26,9 @@ import {
   fetchActiveSessions,
   type ProjectSession,
 } from "../services/sessionService";
-import type { SidebarCollaborator } from "../components/Sidebar";
+import type { SidebarCollaborator } from "../components/editor/Sidebar";
+
+/** Local state used for banners in workspace UI */
 type BannerState =
   | {
       tone: "info" | "error";
@@ -22,6 +36,7 @@ type BannerState =
     }
   | null;
 
+/** Collaborator color palette used for presence indicators */
 const COLLABORATOR_PALETTE = [
   "#2563eb",
   "#9333ea",
@@ -30,11 +45,17 @@ const COLLABORATOR_PALETTE = [
   "#ef4444",
 ] as const;
 
+/** Construct base API and presence URLs */
 const API_BASE_URL =
   (import.meta.env.VITE_API_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 const PRESENCE_WS_URL = `${API_BASE_URL}/presence`;
 
+/**
+ * Main workspace hook: coordinates project editing,
+ * collaboration, session lifecycle, and related UI state.
+ */
 export function useProjectWorkspace(projectId: number | null) {
+  /** --- User and Project Meta --- */
   const [currentUser, setCurrentUser] = useState<StoredUser | null>(() =>
     getStoredUser(),
   );
@@ -42,21 +63,29 @@ export function useProjectWorkspace(projectId: number | null) {
   const [metaLoading, setMetaLoading] = useState(false);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [workspaceCollaborators, setWorkspaceCollaborators] = useState<SidebarCollaborator[]>([]);
+
+  /** --- Realtime and Session References --- */
   const [sessionId, setSessionId] = useState<number | null>(null);
   const collaboratorColorMapRef = useRef(new Map<string, string>());
   const sessionIdRef = useRef<number | null>(null);
   const sessionActiveRef = useRef(false);
   const presenceSocketRef = useRef<Socket | null>(null);
   const heartbeatIntervalRef = useRef<number | null>(null);
+
+  /** Session key for persistence between reloads */
   const sessionStorageKey = useMemo(
     () => (projectId ? `project-session:${projectId}` : null),
     [projectId],
   );
+
+  /**
+   * Assigns or reuses a unique color for each collaborator.
+   * Cycles through a small fixed palette for deterministic mapping.
+   */
   const getCollaboratorColor = useCallback((key: string) => {
     const existing = collaboratorColorMapRef.current.get(key);
-    if (existing) {
-      return existing;
-    }
+    if (existing) return existing;
+
     const color =
       COLLABORATOR_PALETTE[
         collaboratorColorMapRef.current.size % COLLABORATOR_PALETTE.length
@@ -65,10 +94,12 @@ export function useProjectWorkspace(projectId: number | null) {
     return color;
   }, []);
 
+  /**
+   * Keeps the stored user in sync across browser tabs.
+   * Listens for AUTH_USER_EVENT or localStorage changes.
+   */
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
 
     const syncUser = () => {
       setCurrentUser(getStoredUser());
@@ -83,6 +114,10 @@ export function useProjectWorkspace(projectId: number | null) {
     };
   }, []);
 
+  /**
+   * Fetches project metadata and ownership information.
+   * Sets project details, or error message if retrieval fails.
+   */
   useEffect(() => {
     let cancelled = false;
 
@@ -98,40 +133,36 @@ export function useProjectWorkspace(projectId: number | null) {
 
       try {
         const data = await fetchProjectById(projectId);
-        if (cancelled) return;
-        setProjectMeta(data);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unable to load project.";
-        setMetaError(message);
-        setProjectMeta(null);
-      } finally {
         if (!cancelled) {
-          setMetaLoading(false);
+          setProjectMeta(data);
         }
+      } catch (err) {
+        if (!cancelled) {
+          const message =
+            err instanceof Error ? err.message : "Unable to load project.";
+          setMetaError(message);
+          setProjectMeta(null);
+        }
+      } finally {
+        if (!cancelled) setMetaLoading(false);
       }
     };
 
     void loadProjectMeta();
-
     return () => {
       cancelled = true;
     };
   }, [projectId]);
 
+  /** --- Ownership and Permissions --- */
   const currentUserId = currentUser?.id ?? null;
   const ownerId = projectMeta?.owner?.id ?? projectMeta?.ownerId ?? null;
   const isProjectOwner = ownerId !== null && ownerId === currentUserId;
 
+  /** Checks if user has edit rights (owner or collaborator) */
   const canEditProject = useMemo(() => {
-    if (!currentUserId || !projectMeta) {
-      return false;
-    }
-
-    if (isProjectOwner) {
-      return true;
-    }
+    if (!currentUserId || !projectMeta) return false;
+    if (isProjectOwner) return true;
 
     return (
       projectMeta.collaborators?.some(
@@ -143,6 +174,7 @@ export function useProjectWorkspace(projectId: number | null) {
   const readOnlyAccess = !canEditProject;
   const readOnlyBannerVisible = Boolean(projectMeta) && readOnlyAccess;
 
+  /** --- File and Editor State --- */
   const {
     files,
     openFiles,
@@ -160,6 +192,7 @@ export function useProjectWorkspace(projectId: number | null) {
     deleteFile: removeProjectFile,
   } = useProjectEditor(projectId, currentUserId);
 
+  /** --- Realtime Collaboration --- */
   const {
     status: collaborationStatus,
     error: collaborationError,
@@ -173,21 +206,15 @@ export function useProjectWorkspace(projectId: number | null) {
 
   const activeFileId = activeFile?.id ?? null;
 
+  /** --- UI and Modals --- */
   const [isCreateFileOpen, setIsCreateFileOpen] = useState(false);
   const openCreateFileModal = useCallback(() => {
-    if (readOnlyAccess) {
-      return;
-    }
-    setIsCreateFileOpen(true);
+    if (!readOnlyAccess) setIsCreateFileOpen(true);
   }, [readOnlyAccess]);
-  const closeCreateFileModal = useCallback(() => {
-    setIsCreateFileOpen(false);
-  }, []);
+  const closeCreateFileModal = useCallback(() => setIsCreateFileOpen(false), []);
 
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const closeInviteModal = useCallback(() => {
-    setIsInviteModalOpen(false);
-  }, []);
+  const closeInviteModal = useCallback(() => setIsInviteModalOpen(false), []);
 
   const [inviteBanner, setInviteBanner] = useState<BannerState>(null);
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -199,20 +226,18 @@ export function useProjectWorkspace(projectId: number | null) {
   );
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
+  /** Reset banners when project changes */
   useEffect(() => {
     setInviteBanner(null);
     setIsInviteModalOpen(false);
   }, [projectId]);
 
+  /** Listen for external invite modal events */
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
 
     const handleInviteRequest = () => {
-      if (isProjectOwner) {
-        setIsInviteModalOpen(true);
-      }
+      if (isProjectOwner) setIsInviteModalOpen(true);
     };
 
     window.addEventListener("invite-collaborator", handleInviteRequest);
@@ -221,27 +246,28 @@ export function useProjectWorkspace(projectId: number | null) {
     };
   }, [isProjectOwner]);
 
+  /** Reset backup banner when switching active files */
   useEffect(() => {
     setBackupBanner(null);
   }, [activeFileId]);
 
+  /** --- File Interaction Handlers --- */
+
+  /** Syncs draft changes locally and broadcasts via collaboration socket */
   const handleEditorChange = useCallback(
     (value: string | undefined) => {
-      if (!activeFileId || readOnlyAccess) {
-        return;
-      }
+      if (!activeFileId || readOnlyAccess) return;
       updateDraft(activeFileId, value);
       emitCollaborativeChange(value);
     },
     [activeFileId, emitCollaborativeChange, readOnlyAccess, updateDraft],
   );
 
+  /** Creates a new file if user has write access */
   const handleCreateFile = useCallback(
     async ({ filename, content }: { filename: string; content: string }) => {
       if (readOnlyAccess) {
-        throw new Error(
-          "You do not have permission to create files in this project.",
-        );
+        throw new Error("You do not have permission to create files in this project.");
       }
       await createFile({ filename, content });
       setIsCreateFileOpen(false);
@@ -249,16 +275,17 @@ export function useProjectWorkspace(projectId: number | null) {
     [createFile, readOnlyAccess],
   );
 
+  /**
+   * Creates a version backup for the active file.
+   * Opens a prompt for naming the backup, saves it to the database,
+   * and displays a banner with the result.
+   */
   const handleBackupFile = useCallback(async () => {
-    if (!activeFile || readOnlyAccess || typeof window === "undefined") {
-      return;
-    }
+    if (!activeFile || readOnlyAccess || typeof window === "undefined") return;
 
     const defaultLabel = `Backup ${new Date().toLocaleString()}`;
     const labelInput = window.prompt("Name this backup", defaultLabel);
-    if (labelInput === null) {
-      return;
-    }
+    if (labelInput === null) return;
 
     const trimmedLabel = labelInput.trim();
     if (!trimmedLabel) {
@@ -274,17 +301,10 @@ export function useProjectWorkspace(projectId: number | null) {
         userId: currentUserId ?? undefined,
         label: trimmedLabel,
       });
-      setBackupBanner({
-        tone: "info",
-        text: `Backup "${trimmedLabel}" created.`,
-      });
+      setBackupBanner({ tone: "info", text: `Backup "${trimmedLabel}" created.` });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Failed to create backup.";
-      setBackupBanner({
-        tone: "error",
-        text: message,
-      });
+      const message = error instanceof Error ? error.message : "Failed to create backup.";
+      setBackupBanner({ tone: "error", text: message });
     } finally {
       setIsBackingUp(false);
     }
@@ -294,6 +314,7 @@ export function useProjectWorkspace(projectId: number | null) {
     void handleBackupFile();
   }, [handleBackupFile]);
 
+  /** Deletes a file and updates UI banners accordingly */
   const handleDeleteFile = useCallback(
     async (fileId: number) => {
       if (readOnlyAccess) {
@@ -306,30 +327,24 @@ export function useProjectWorkspace(projectId: number | null) {
 
       try {
         await removeProjectFile(fileId);
-        setBackupBanner({
-          tone: "info",
-          text: "File deleted.",
-        });
+        setBackupBanner({ tone: "info", text: "File deleted." });
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Failed to delete file.";
-        setBackupBanner({
-          tone: "error",
-          text: message,
-        });
+        const message = error instanceof Error ? error.message : "Failed to delete file.";
+        setBackupBanner({ tone: "error", text: message });
       }
     },
     [readOnlyAccess, removeProjectFile],
   );
 
+  /**
+   * Reverts a file to a previous version backup.
+   * Updates content using syncFileContent and updates banners.
+   */
   const handleRevertBackup = useCallback(
     async (versionId: number, fileId?: number | null) => {
       const targetFileId = fileId ?? activeFileId;
       if (!targetFileId) {
-        setBackupBanner({
-          tone: "error",
-          text: "Select a file to revert.",
-        });
+        setBackupBanner({ tone: "error", text: "Select a file to revert." });
         return;
       }
 
@@ -339,17 +354,10 @@ export function useProjectWorkspace(projectId: number | null) {
         if (revertedFile?.id) {
           syncFileContent(revertedFile.id, revertedFile.content ?? "", true);
         }
-        setBackupBanner({
-          tone: "info",
-          text: "File reverted to selected backup.",
-        });
+        setBackupBanner({ tone: "info", text: "File reverted to selected backup." });
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Failed to revert backup.";
-        setBackupBanner({
-          tone: "error",
-          text: message,
-        });
+        const message = error instanceof Error ? error.message : "Failed to revert backup.";
+        setBackupBanner({ tone: "error", text: message });
       } finally {
         setRevertingVersionId(null);
       }
@@ -357,14 +365,14 @@ export function useProjectWorkspace(projectId: number | null) {
     [activeFileId, syncFileContent],
   );
 
-  const openWorkspaceSettings = useCallback(() => {
-    setIsSettingsOpen(true);
-  }, []);
+  /** --- Workspace Panels and Settings --- */
+  const openWorkspaceSettings = useCallback(() => setIsSettingsOpen(true), []);
+  const closeWorkspaceSettings = useCallback(() => setIsSettingsOpen(false), []);
 
-  const closeWorkspaceSettings = useCallback(() => {
-    setIsSettingsOpen(false);
-  }, []);
-
+  /**
+   * Sends an invitation to collaborate on the project.
+   * Updates banner with success or error feedback.
+   */
   const handleInviteCollaborator = useCallback(
     async (identifier: string) => {
       if (!projectId || !currentUserId) {
@@ -384,24 +392,24 @@ export function useProjectWorkspace(projectId: number | null) {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Failed to send invitation.";
-        setInviteBanner({
-          tone: "error",
-          text: message,
-        });
+        setInviteBanner({ tone: "error", text: message });
         throw new Error(message);
       }
     },
     [currentUserId, projectId],
   );
 
+  /** Updates workspace metadata when project info changes */
   const handleProjectUpdated = useCallback((next: Project) => {
     setProjectMeta(next);
   }, []);
-
+  /**
+   * Executes the active file in the terminal.
+   * Ensures unsaved changes are saved first, then dispatches
+   * a `run-file-requested` event to the window for terminal handling.
+   */
   const handleRunActiveFile = useCallback(async () => {
-    if (!activeFile) {
-      return;
-    }
+    if (!activeFile) return;
 
     const payload = {
       fileId: activeFile.id,
@@ -413,10 +421,7 @@ export function useProjectWorkspace(projectId: number | null) {
 
     emitRunExecutionState(true);
 
-    if (
-      !readOnlyAccess &&
-      (activeFile.dirty || activeFile.saveError)
-    ) {
+    if (!readOnlyAccess && (activeFile.dirty || activeFile.saveError)) {
       const saved = await saveFile(activeFile.id);
       if (!saved) {
         emitRunExecutionState(false);
@@ -428,23 +433,28 @@ export function useProjectWorkspace(projectId: number | null) {
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(
-        new CustomEvent("run-file-requested", {
-          detail: payload,
-        }),
+        new CustomEvent("run-file-requested", { detail: payload }),
       );
     }
   }, [activeFile, readOnlyAccess, saveFile]);
 
+  /** Toggles the terminal panel visibility */
   const toggleTerminal = useCallback(() => {
     setIsTerminalOpen((open) => !open);
   }, []);
 
+  /** Displays readable owner label in top bar */
   const ownerLabel = useMemo(() => {
     const owner = projectMeta?.owner;
     if (!owner) return null;
     return owner.username || owner.email || `User #${owner.id}`;
   }, [projectMeta?.owner]);
 
+  /**
+   * Builds a base collaborator map from the project owner,
+   * collaborators, and current user.
+   * Used as a baseline before merging live session updates.
+   */
   const buildBaseCollaborators = useCallback(() => {
     const baseMap = new Map<string, SidebarCollaborator>();
 
@@ -474,7 +484,6 @@ export function useProjectWorkspace(projectId: number | null) {
     }
 
     const getInviteIdentifier = (collab: any): string | null => {
-      // API may return snake_case or camelCase fields; prefer explicit fields when present
       if (!collab) return null;
       return (
         collab.inviteIdentifier ||
@@ -515,6 +524,10 @@ export function useProjectWorkspace(projectId: number | null) {
     return baseMap;
   }, [currentUser, getCollaboratorColor, ownerLabel, projectMeta?.collaborators, projectMeta?.owner]);
 
+  /**
+   * Updates the live collaborator list from active session data.
+   * Merges session presence with the base collaborator list.
+   */
   const updateCollaboratorsFromSessions = useCallback(
     (sessions: ProjectSession[]) => {
       const baseMap = buildBaseCollaborators();
@@ -529,6 +542,7 @@ export function useProjectWorkspace(projectId: number | null) {
           (userId != null ? `User #${userId}` : "Guest");
         const status: SidebarCollaborator["status"] =
           session.status === "active" ? "online" : "away";
+
         const existing = baseMap.get(key);
         if (existing) {
           existing.status = status;
@@ -551,18 +565,25 @@ export function useProjectWorkspace(projectId: number | null) {
     [buildBaseCollaborators, getCollaboratorColor],
   );
 
+  /** Initializes collaborator list with empty session state */
   useEffect(() => {
     updateCollaboratorsFromSessions([]);
   }, [updateCollaboratorsFromSessions]);
 
+  /**
+   * Ends the current session and cleans up associated state:
+   * - Disconnects from presence socket
+   * - Clears heartbeat intervals and local storage
+   * - Attempts a graceful session termination via beacon or API
+   */
   const endCurrentSession = useCallback(() => {
-    if (!sessionActiveRef.current) {
-      return;
-    }
+    if (!sessionActiveRef.current) return;
+
     sessionActiveRef.current = false;
     const previousSessionId = sessionIdRef.current;
     sessionIdRef.current = null;
     setSessionId(null);
+
     const presenceSocket = presenceSocketRef.current;
     if (presenceSocket) {
       if (previousSessionId) {
@@ -571,44 +592,52 @@ export function useProjectWorkspace(projectId: number | null) {
       presenceSocket.disconnect();
       presenceSocketRef.current = null;
     }
+
     if (heartbeatIntervalRef.current) {
       window.clearInterval(heartbeatIntervalRef.current);
       heartbeatIntervalRef.current = null;
     }
+
     if (sessionStorageKey && typeof window !== "undefined") {
       window.localStorage.removeItem(sessionStorageKey);
     }
-    if (!previousSessionId) {
-      return;
-    }
-    if (endSessionBeacon(previousSessionId)) {
-      return;
-    }
+
+    if (!previousSessionId) return;
+    if (endSessionBeacon(previousSessionId)) return;
     void endSession(previousSessionId).catch(() => undefined);
   }, [sessionStorageKey]);
 
+  /**
+   * Cleans up stale sessions from previous browser sessions.
+   * Ensures no dangling server-side sessions remain active.
+   */
   const recoverStaleSession = useCallback(async () => {
-    if (!sessionStorageKey || typeof window === "undefined") {
-      return;
-    }
+    if (!sessionStorageKey || typeof window === "undefined") return;
+
     const storedSession = window.localStorage.getItem(sessionStorageKey);
     const restoredId = storedSession ? Number(storedSession) : NaN;
     if (!Number.isFinite(restoredId) || restoredId <= 0) {
       window.localStorage.removeItem(sessionStorageKey);
       return;
     }
+
     try {
       if (!endSessionBeacon(restoredId)) {
         await endSession(restoredId);
       }
     } catch {
-      // ignore best-effort cleanup
+      // Ignore cleanup errors
     } finally {
       window.localStorage.removeItem(sessionStorageKey);
       setSessionId(null);
     }
   }, [sessionStorageKey]);
 
+  /**
+   * Handles session creation and cleanup lifecycle.
+   * Creates a new session when the user opens the project,
+   * and ends it when the page unloads or loses visibility.
+   */
   useEffect(() => {
     if (
       !projectId ||
@@ -641,7 +670,6 @@ export function useProjectWorkspace(projectId: number | null) {
         }
         setSessionId(session.id);
       } catch (error) {
-        // eslint-disable-next-line no-console
         console.error("Failed to create session", error);
       }
     };
@@ -675,6 +703,11 @@ export function useProjectWorkspace(projectId: number | null) {
     sessionStorageKey,
   ]);
 
+  /**
+   * Establishes and maintains presence socket connection.
+   * Keeps collaborator presence up-to-date via `presence:update` events,
+   * with periodic heartbeats to indicate the session is active.
+   */
   useEffect(() => {
     if (!projectId || !sessionId || typeof window === "undefined") {
       if (presenceSocketRef.current) {
@@ -710,14 +743,11 @@ export function useProjectWorkspace(projectId: number | null) {
       projectId?: number;
       sessions?: ProjectSession[];
     }) => {
-      if (payload?.projectId !== projectId) {
-        return;
-      }
+      if (payload?.projectId !== projectId) return;
       updateCollaboratorsFromSessions(payload.sessions ?? []);
     };
 
     const handleError = (payload: { message?: string }) => {
-      // eslint-disable-next-line no-console
       console.warn("Presence socket error:", payload?.message);
     };
 
@@ -731,6 +761,7 @@ export function useProjectWorkspace(projectId: number | null) {
       socket.off("presence:error", handleError);
       socket.emit("presence:leave", { sessionId });
       socket.disconnect();
+
       if (presenceSocketRef.current === socket) {
         presenceSocketRef.current = null;
       }
@@ -741,6 +772,10 @@ export function useProjectWorkspace(projectId: number | null) {
     };
   }, [projectId, sessionId, updateCollaboratorsFromSessions]);
 
+  /**
+   * Loads active sessions when opening the workspace.
+   * Provides initial collaborator presence before realtime sync.
+   */
   useEffect(() => {
     if (!projectId || typeof window === "undefined") {
       collaboratorColorMapRef.current.clear();
@@ -759,7 +794,6 @@ export function useProjectWorkspace(projectId: number | null) {
         }
       } catch (error) {
         if (!cancelled) {
-          // eslint-disable-next-line no-console
           console.error("Failed to fetch active sessions", error);
         }
       }
@@ -774,6 +808,7 @@ export function useProjectWorkspace(projectId: number | null) {
     };
   }, [projectId, updateCollaboratorsFromSessions]);
 
+  /** --- Derived UI States --- */
   const onlineCollaboratorCount = useMemo(
     () =>
       workspaceCollaborators.filter(
@@ -791,6 +826,7 @@ export function useProjectWorkspace(projectId: number | null) {
   const activeFileSaving = Boolean(activeFile?.saving);
   const runButtonDisabled = !activeFile || isRunning || activeFileSaving;
   const runButtonLabel = isRunning ? "Running…" : "Run";
+
   const backupButtonDisabled =
     readOnlyAccess || !activeFile || activeFileSaving || isBackingUp;
   const backupButtonLabel = readOnlyAccess
@@ -798,11 +834,13 @@ export function useProjectWorkspace(projectId: number | null) {
     : isBackingUp
       ? "Backing up…"
       : "Backup";
+
   const projectTitle =
     metaLoading && !projectMeta?.title
       ? "Loading project…"
       : projectMeta?.title ?? "Untitled project";
 
+  /** --- Public API --- */
   return {
     projectMeta,
     projectTitle,

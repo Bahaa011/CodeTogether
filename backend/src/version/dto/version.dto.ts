@@ -1,5 +1,8 @@
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
+/**
+ * DTO for creating a new file version.
+ */
 export class CreateVersionDto {
   @IsInt()
   @Min(1)

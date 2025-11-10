@@ -1,3 +1,10 @@
+/**
+ * EditorGateway
+ * ---------------
+ * Handles real-time collaborative editing using WebSockets and Operational Transformation (OT).
+ * Synchronizes file content between multiple users in real time while maintaining consistency.
+ */
+
 import {
   ConnectedSocket,
   MessageBody,
@@ -13,6 +20,8 @@ import {
   normalizeOperation,
   transformOperation,
 } from './text-ot';
+
+/** -------------------- Types -------------------- */
 
 type ClientOperationPayload = {
   fileId: number;
@@ -38,10 +47,10 @@ type DocumentState = {
 
 const MAX_HISTORY = 200;
 
+/** -------------------- Gateway -------------------- */
+
 @WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
+  cors: { origin: '*' },
 })
 export class EditorGateway {
   @WebSocketServer()
@@ -52,6 +61,10 @@ export class EditorGateway {
 
   constructor(private readonly fileService: FileService) {}
 
+  /**
+   * Handle a client joining an editor room for a specific file.
+   * Sends the current document state to the new client.
+   */
   @SubscribeMessage('editor:join')
   async handleJoin(
     @MessageBody() payload: { fileId: number },
@@ -59,10 +72,7 @@ export class EditorGateway {
   ) {
     const fileId = Number(payload?.fileId);
     if (!Number.isFinite(fileId)) {
-      client.emit('editor:error', {
-        fileId,
-        message: 'A valid fileId is required to join.',
-      });
+      client.emit('editor:error', { fileId, message: 'A valid fileId is required to join.' });
       return;
     }
 
@@ -83,6 +93,10 @@ export class EditorGateway {
     }
   }
 
+  /**
+   * Receive an operation from a client and apply it to the document.
+   * Queues, transforms, or commits it depending on version alignment.
+   */
   @SubscribeMessage('editor:operation')
   async handleOperation(
     @MessageBody() payload: ClientOperationPayload,
@@ -90,10 +104,7 @@ export class EditorGateway {
   ) {
     const fileId = Number(payload?.fileId);
     if (!Number.isFinite(fileId)) {
-      client.emit('editor:error', {
-        fileId,
-        message: 'Invalid file identifier supplied.',
-      });
+      client.emit('editor:error', { fileId, message: 'Invalid file identifier supplied.' });
       return;
     }
 
@@ -102,10 +113,7 @@ export class EditorGateway {
     const baseVersion = Number(payload.version);
 
     if (!Number.isFinite(baseVersion)) {
-      client.emit('editor:error', {
-        fileId,
-        message: 'Operation version is required.',
-      });
+      client.emit('editor:error', { fileId, message: 'Operation version is required.' });
       return;
     }
 
@@ -115,10 +123,7 @@ export class EditorGateway {
     }
 
     if (baseVersion < document.baseVersion) {
-      client.emit('editor:resync', {
-        fileId,
-        version: document.version,
-      });
+      client.emit('editor:resync', { fileId, version: document.version });
       return;
     }
 
@@ -128,13 +133,13 @@ export class EditorGateway {
     });
 
     if (!applied) {
-      client.emit('editor:resync', {
-        fileId,
-        version: document.version,
-      });
+      client.emit('editor:resync', { fileId, version: document.version });
     }
   }
 
+  /**
+   * Handle client disconnection and clean up their associations.
+   */
   handleDisconnect(client: Socket) {
     const fileId = this.clientFiles.get(client.id);
     if (fileId) {
@@ -148,6 +153,11 @@ export class EditorGateway {
     }
   }
 
+  /** -------------------- Internals -------------------- */
+
+  /**
+   * Move a client into the appropriate WebSocket room for a given file.
+   */
   private switchClientRoom(client: Socket, fileId: number) {
     const previousFileId = this.clientFiles.get(client.id);
     if (previousFileId && previousFileId !== fileId) {
@@ -159,11 +169,12 @@ export class EditorGateway {
     this.clientFiles.set(client.id, fileId);
   }
 
+  /**
+   * Retrieve or initialize a document's state from the database.
+   */
   private async ensureDocument(fileId: number): Promise<DocumentState> {
     const existing = this.documents.get(fileId);
-    if (existing) {
-      return existing;
-    }
+    if (existing) return existing;
 
     const file = await this.fileService.getFileById(fileId);
     const state: DocumentState = {
@@ -179,49 +190,49 @@ export class EditorGateway {
     return state;
   }
 
+  /**
+   * Queue an operation that arrived out of order for later application.
+   */
   private queueOperation(document: DocumentState, operation: ClientOperationPayload) {
     const queue = document.pending.get(operation.version) ?? [];
     queue.push(operation);
     document.pending.set(operation.version, queue);
   }
 
+  /**
+   * Transform and apply a client operation to bring it in sync with document history.
+   */
   private resolveAndCommit(document: DocumentState, operation: ClientOperationPayload) {
-    if (operation.version < document.baseVersion) {
-      return false;
-    }
+    if (operation.version < document.baseVersion) return false;
 
     let transformed = normalizeOperation(operation.components);
 
     for (let version = operation.version; version < document.version; version += 1) {
       const historyEntry = document.history[version - document.baseVersion];
-      if (!historyEntry) {
-        return false;
-      }
+      if (!historyEntry) return false;
       transformed = transformOperation(transformed, historyEntry.components);
     }
 
-    const committed = this.commitOperation(document, {
+    return this.commitOperation(document, {
       ...operation,
       components: transformed,
     });
-
-    return committed;
   }
 
+  /**
+   * Apply a validated operation to the document state and broadcast it to connected clients.
+   */
   private commitOperation(document: DocumentState, operation: ClientOperationPayload) {
     let nextContent: string;
     try {
       nextContent = applyTextOperation(document.content, operation.components);
     } catch (error) {
-      // eslint-disable-next-line no-console
       console.error('Failed to apply collaborative operation', error);
       return false;
     }
+
     document.content = nextContent;
-    document.history.push({
-      version: document.version,
-      components: operation.components,
-    });
+    document.history.push({ version: document.version, components: operation.components });
     document.version += 1;
 
     if (document.history.length > MAX_HISTORY) {
@@ -229,11 +240,12 @@ export class EditorGateway {
       document.baseVersion += 1;
     }
 
+    // Persist asynchronously to the database
     void this.fileService.updateFile(document.fileId, { content: nextContent }).catch(() => {
-      // eslint-disable-next-line no-console
       console.warn(`Failed to persist collaborative changes for file ${document.fileId}`);
     });
 
+    // Broadcast applied operation to all connected clients
     this.server.to(this.getRoomName(document.fileId)).emit('editor:operation-applied', {
       fileId: document.fileId,
       version: document.version,
@@ -245,6 +257,9 @@ export class EditorGateway {
     return true;
   }
 
+  /**
+   * Process any queued operations that are now ready to apply.
+   */
   private processQueuedOperations(document: DocumentState) {
     let progress = true;
     while (progress) {
@@ -254,23 +269,23 @@ export class EditorGateway {
           document.pending.delete(version);
           continue;
         }
-        if (version > document.version) {
-          continue;
-        }
+        if (version > document.version) continue;
+
         const nextOperation = queue.shift()!;
-        if (!queue.length) {
-          document.pending.delete(version);
-        }
+        if (!queue.length) document.pending.delete(version);
+
         const committed = this.resolveAndCommit(document, nextOperation);
-        if (!committed) {
-          document.pending.delete(version);
-        }
+        if (!committed) document.pending.delete(version);
+
         progress = true;
         break;
       }
     }
   }
 
+  /**
+   * Generate the WebSocket room name for a given file.
+   */
   private getRoomName(fileId: number) {
     return `file:${fileId}`;
   }

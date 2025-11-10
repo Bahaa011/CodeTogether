@@ -86,7 +86,6 @@ JWT_EXPIRES_IN=1d
 MAIL_USER=hello@example.com
 MAIL_PASS=app-password-or-smtp-secret
 FRONTEND_URL=http://localhost:5173
-SESSION_STALE_MS=60000
 ```
 
 Update `src/app.module.ts` to read from these env vars (currently hardcoded for dev). Also move the inline JWT secret in `auth.module.ts` to the env file before committing to GitHub.

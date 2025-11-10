@@ -13,12 +13,12 @@
 .tag-select__label {
   margin: 0;
   font-weight: 600;
-  color: #cfd8f9;
+  color: var(--tag-label);
 }
 
 .tag-select__hint {
   font-size: 0.85rem;
-  color: #8da2d8;
+  color: var(--tag-hint);
 }
 
 .tag-select__options {
@@ -28,9 +28,9 @@
 }
 
 .tag-select__option {
-  border: 1px solid rgba(111, 126, 183, 0.5);
-  background: rgba(19, 29, 52, 0.4);
-  color: #aebde9;
+  border: 1px solid var(--tag-option-border);
+  background: var(--tag-option-bg);
+  color: var(--tag-option-text);
   padding: 0.35rem 0.9rem;
   border-radius: 999px;
   font-size: 0.85rem;
@@ -45,14 +45,14 @@
 
 .tag-select__option:hover:not(.is-disabled):not(:disabled) {
   transform: translateY(-1px);
-  border-color: rgba(129, 140, 248, 0.8);
-  color: #e4e9ff;
+  border-color: var(--tag-option-hover-border);
+  color: var(--tag-option-hover-text);
 }
 
 .tag-select__option.is-active {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.8);
-  color: #f4f6ff;
+  background: var(--tag-option-active-bg);
+  border-color: var(--tag-option-active-border);
+  color: var(--tag-option-active-text);
 }
 
 .tag-select__option.is-disabled {

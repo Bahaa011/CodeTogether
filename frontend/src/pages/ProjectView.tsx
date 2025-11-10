@@ -1,6 +1,24 @@
+/**
+ * ProjectView Page
+ * -----------------
+ * The central workspace for collaborative coding sessions in CodeTogether.
+ * 
+ * Features:
+ * - Real-time editing and multi-user presence (collaboration gateway)
+ * - File management (create, delete, open, tab-based switching)
+ * - Live code execution and backups
+ * - Project settings, collaborator invites, and terminal access
+ *
+ * Components:
+ * - Sidebar: File tree and collaborator overview
+ * - CodeEditor: Real-time synchronized Monaco editor
+ * - Terminal: Docker-powered execution environment
+ * - FileTabs, Modals, and Collaboration banners for interaction feedback
+ */
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
+import Sidebar from "../components/editor/Sidebar";
 import FileTabs from "../components/editor/FileTabs";
 import CodeEditor from "../components/editor/CodeEditor";
 import CreateFileModal from "../components/modal/CreateFileModal";
@@ -14,6 +32,11 @@ import "../styles/editor-pane.css";
 import { resolveAssetUrl } from "../utils/url";
 
 export default function ProjectView() {
+  /**
+   * Routing & Initialization
+   * -------------------------
+   * Retrieves the project ID from the URL and validates it for workspace setup.
+   */
   const { projectId: projectIdParam } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const projectId = useMemo(() => {
@@ -22,6 +45,14 @@ export default function ProjectView() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [projectIdParam]);
 
+  /**
+   * useProjectWorkspace Hook
+   * -------------------------
+   * Encapsulates workspace logic including:
+   * - Project metadata and permissions
+   * - File operations (open, save, delete, backup)
+   * - Collaboration state, sync banners, and terminal control
+   */
   const {
     projectMeta,
     projectTitle,
@@ -79,10 +110,13 @@ export default function ProjectView() {
     handleDeleteFile,
   } = useProjectWorkspace(projectId);
 
+  /**
+   * Lifecycle: Body Overflow Management
+   * -----------------------------------
+   * Disables scroll during editor session for a full-viewport layout experience.
+   */
   useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
+    if (typeof document === "undefined") return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -90,13 +124,21 @@ export default function ProjectView() {
     };
   }, []);
 
+  /**
+   * handleGoHome
+   * -------------
+   * Navigates user back to the home dashboard.
+   */
   const handleGoHome = useCallback(() => {
     navigate("/");
   }, [navigate]);
 
-  const [filePendingDeleteId, setFilePendingDeleteId] = useState<number | null>(
-    null,
-  );
+  /**
+   * File Deletion State
+   * --------------------
+   * Manages pending deletion confirmation for a specific file.
+   */
+  const [filePendingDeleteId, setFilePendingDeleteId] = useState<number | null>(null);
   const filePendingDelete = useMemo(
     () =>
       files.find((file) => file.id === filePendingDeleteId) ??
@@ -104,10 +146,13 @@ export default function ProjectView() {
     [filePendingDeleteId, files, openFiles],
   );
 
+  /**
+   * handleConfirmDeleteFile
+   * ------------------------
+   * Executes file deletion from both local state and backend storage.
+   */
   const handleConfirmDeleteFile = useCallback(async () => {
-    if (!filePendingDelete) {
-      return;
-    }
+    if (!filePendingDelete) return;
     try {
       await handleDeleteFile(filePendingDelete.id);
     } finally {
@@ -115,8 +160,18 @@ export default function ProjectView() {
     }
   }, [filePendingDelete, handleDeleteFile]);
 
+  /**
+   * JSX Return
+   * -----------
+   * Defines the structure of the entire project workspace:
+   * - Topbar (project info, run, save, and terminal controls)
+   * - Sidebar (file tree and collaborators)
+   * - Main editor area (tabs + code editor + terminal drawer)
+   * - Modals for creating files, settings, invitations, and confirmations
+   */
   return (
     <div className="project-shell">
+      {/* ------------------ Topbar ------------------ */}
       <header className="workspace-topbar">
         <div className="workspace-topbar__brand">
           <span className="workspace-topbar__logo">CT</span>
@@ -126,13 +181,12 @@ export default function ProjectView() {
             onClick={handleGoHome}
           >
             <span className="workspace-topbar__title">CodeTogether</span>
-            <span className="workspace-topbar__project">
-              {projectTitle}
-            </span>
+            <span className="workspace-topbar__project">{projectTitle}</span>
           </button>
         </div>
 
         <div className="workspace-topbar__controls">
+          {/* Collaborator avatars */}
           <div className="workspace-topbar__avatars">
             {topbarAvatars.map((collaborator) => {
               const avatarImage = resolveAssetUrl(collaborator.avatarUrl);
@@ -169,6 +223,7 @@ export default function ProjectView() {
             )}
           </div>
 
+          {/* Live collaboration status */}
           <span className="workspace-topbar__presence">
             <span className="workspace-topbar__presence-dot" />
             {onlineCollaboratorCount} online
@@ -176,37 +231,32 @@ export default function ProjectView() {
               {resyncing
                 ? "Resyncing…"
                 : collaborationStatus === "ready"
-                  ? "Live sync"
-                  : collaborationStatus === "connecting"
-                    ? "Syncing…"
-                    : "Offline"}
+                ? "Live sync"
+                : collaborationStatus === "connecting"
+                ? "Syncing…"
+                : "Offline"}
             </span>
           </span>
 
+          {/* Run / Save / Terminal Controls */}
           <button
             type="button"
             className="workspace-topbar__button workspace-topbar__button--run"
-            onClick={() => {
-              void handleRunActiveFile();
-            }}
+            onClick={() => void handleRunActiveFile()}
             disabled={runButtonDisabled}
           >
             <span className="workspace-topbar__button-content">
               {isRunning && (
-                <span
-                  className="button-spinner button-spinner--light"
-                  aria-hidden="true"
-                />
+                <span className="button-spinner button-spinner--light" aria-hidden="true" />
               )}
               {runButtonLabel}
             </span>
           </button>
+
           <button
             type="button"
             className="workspace-topbar__button workspace-topbar__button--save"
-            onClick={() => {
-              void handleBackupFile();
-            }}
+            onClick={() => void handleBackupFile()}
             disabled={backupButtonDisabled}
           >
             <span className="workspace-topbar__button-content">
@@ -216,6 +266,7 @@ export default function ProjectView() {
               {backupButtonLabel}
             </span>
           </button>
+
           <button
             type="button"
             className="workspace-topbar__button workspace-topbar__button--ghost"
@@ -223,6 +274,7 @@ export default function ProjectView() {
           >
             {isTerminalOpen ? "Hide Terminal" : "Terminal"}
           </button>
+
           {isProjectOwner && (
             <button
               type="button"
@@ -233,14 +285,14 @@ export default function ProjectView() {
               ⚙
             </button>
           )}
+
           {activeFile?.saveError && (
-            <span className="workspace-topbar__error">
-              {activeFile.saveError}
-            </span>
+            <span className="workspace-topbar__error">{activeFile.saveError}</span>
           )}
         </div>
       </header>
 
+      {/* ------------------ Body ------------------ */}
       <div className="project-body">
         <Sidebar
           files={files}
@@ -259,11 +311,10 @@ export default function ProjectView() {
           collaborators={workspaceCollaborators}
         />
 
+        {/* ------------------ Workspace ------------------ */}
         <div className="project-workspace">
           {metaError && (
-            <div className="workspace-banner workspace-banner--error">
-              {metaError}
-            </div>
+            <div className="workspace-banner workspace-banner--error">{metaError}</div>
           )}
           {!metaError && readOnlyBannerVisible && (
             <div className="workspace-banner workspace-banner--info">
@@ -297,6 +348,7 @@ export default function ProjectView() {
               {backupBanner.text}
             </div>
           )}
+
           <FileTabs
             files={openFiles}
             activeFileId={activeFileId}
@@ -316,6 +368,8 @@ export default function ProjectView() {
                 readOnly={readOnlyAccess}
               />
             </div>
+
+            {/* Terminal Drawer */}
             <div
               className={
                 isTerminalOpen
@@ -330,6 +384,7 @@ export default function ProjectView() {
         </div>
       </div>
 
+      {/* ------------------ Modals ------------------ */}
       <CreateFileModal
         open={isCreateFileOpen}
         onClose={closeCreateFileModal}

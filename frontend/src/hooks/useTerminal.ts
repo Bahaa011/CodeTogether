@@ -1,3 +1,21 @@
+/**
+ * useTerminal Hook
+ * ---------------------------------------
+ * Manages the terminal logic for executing code, displaying output,
+ * and handling user input. This hook connects to the backend WebSocket
+ * terminal service, sends execution requests, and streams stdout/stderr data.
+ *
+ * It integrates with the global execution state via emitRunExecutionState(),
+ * allowing the rest of the UI to stay synchronized when code is running or stops.
+ *
+ * Handles:
+ * - Establishing a socket connection to the terminal backend
+ * - Executing supported languages (Python, JavaScript, C++, Java)
+ * - Streaming and formatting output
+ * - Handling user input during program execution
+ * - Stopping active runs gracefully
+ */
+
 import {
   useCallback,
   useEffect,
@@ -9,6 +27,7 @@ import {
 import { io, type Socket } from "socket.io-client";
 import { emitRunExecutionState } from "./useRunExecutionState";
 
+/** Supported file execution metadata */
 type RunFileRequestDetail = {
   fileId: number;
   filename: string;
@@ -17,20 +36,24 @@ type RunFileRequestDetail = {
   language?: string | null;
 };
 
+/** Represents the type of output a terminal message belongs to */
 type OutputKind = "stdout" | "stderr" | "info" | "error" | "command";
 
+/** Represents one line of terminal output */
 type OutputEntry = {
   id: number;
   text: string;
   kind: OutputKind;
 };
 
+/** Payload sent to start code execution on the backend */
 type StartExecutionPayload = {
   language: string;
   code: string;
   filename: string;
 };
 
+/** Languages that the execution backend supports */
 const SUPPORTED_LANGUAGES = new Set(["python", "javascript", "cpp", "java"]);
 
 const TERMINAL_URL =
@@ -38,6 +61,9 @@ const TERMINAL_URL =
   import.meta.env.VITE_API_URL ??
   "http://localhost:3000";
 
+/**
+ * Resolves the correct execution language from filename or metadata.
+ */
 function resolveLanguage(detail: RunFileRequestDetail): string | null {
   const toCheck = [
     detail.language,
@@ -49,27 +75,41 @@ function resolveLanguage(detail: RunFileRequestDetail): string | null {
 
   for (const candidate of toCheck) {
     if (!candidate) continue;
-    if (SUPPORTED_LANGUAGES.has(candidate)) {
-      return candidate;
-    }
-    if (candidate === "js" || candidate === "jsx") {
-      return "javascript";
-    }
-    if (candidate === "py") {
-      return "python";
-    }
-    if (["cpp", "cc", "cxx", "hpp", "hxx"].includes(candidate)) {
-      return "cpp";
-    }
+    if (SUPPORTED_LANGUAGES.has(candidate)) return candidate;
+    if (candidate === "js" || candidate === "jsx") return "javascript";
+    if (candidate === "py") return "python";
+    if (["cpp", "cc", "cxx", "hpp", "hxx"].includes(candidate)) return "cpp";
   }
 
   return null;
 }
 
+/**
+ * Converts CRLF line breaks to LF for consistent terminal formatting.
+ */
 function normalizeChunk(raw: string) {
   return raw.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 }
 
+/**
+ * useTerminal
+ * ---------------------------------------
+ * Core hook that controls the interactive terminal component.
+ * It establishes a live WebSocket connection, manages terminal
+ * output, and provides methods to run, stop, and interact with
+ * code execution processes.
+ *
+ * Returned values:
+ * - output: List of formatted terminal output entries
+ * - inputValue: Current user input in the terminal
+ * - isRunning: Whether a program is currently executing
+ * - statusLabel: Status message ("Running", "Disconnected", etc.)
+ * - handleSubmitInput: Sends terminal input to the backend
+ * - handleStop: Stops current execution
+ * - handleInputChange: Updates inputValue when the user types
+ * - outputRef: Ref for the scrollable terminal output container
+ * - inputRef: Ref for the terminal input element
+ */
 export function useTerminal() {
   const [output, setOutput] = useState<OutputEntry[]>([]);
   const [isRunning, setIsRunning] = useState(false);
@@ -85,12 +125,14 @@ export function useTerminal() {
   const lineCounterRef = useRef(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  // Reset global run state when unmounted
   useEffect(() => {
     return () => {
       emitRunExecutionState(false);
     };
   }, []);
 
+  // Append new output lines to the terminal buffer
   const appendOutput = useCallback((chunk: string, kind: OutputKind) => {
     const normalized = normalizeChunk(chunk);
     const segments = normalized.split("\n");
@@ -104,6 +146,7 @@ export function useTerminal() {
     ]);
   }, []);
 
+  // Initialize socket connection and handle terminal events
   useEffect(() => {
     const socket = io(TERMINAL_URL, {
       autoConnect: true,
@@ -186,21 +229,19 @@ export function useTerminal() {
     };
   }, [appendOutput]);
 
+  // Auto-scroll output to bottom when new data appears
   useEffect(() => {
-    if (!outputRef.current) {
-      return;
-    }
+    if (!outputRef.current) return;
     outputRef.current.scrollTop = outputRef.current.scrollHeight;
   }, [output]);
 
+  // Refocus input field while program is running
   useEffect(() => {
-    if (!isRunning) {
-      return;
-    }
-
+    if (!isRunning) return;
     inputRef.current?.focus({ preventScroll: true });
   }, [output, isRunning]);
 
+  // Start code execution for a given file
   const startExecution = useCallback(
     (detail: RunFileRequestDetail) => {
       const socket = socketRef.current;
@@ -248,12 +289,11 @@ export function useTerminal() {
     [appendOutput],
   );
 
+  // Listen for global run-file-requested events
   useEffect(() => {
     const listener = (event: Event) => {
       const customEvent = event as CustomEvent<RunFileRequestDetail>;
-      if (!customEvent.detail) {
-        return;
-      }
+      if (!customEvent.detail) return;
       startExecution(customEvent.detail);
     };
 
@@ -263,6 +303,7 @@ export function useTerminal() {
     };
   }, [startExecution]);
 
+  // Handle user input submission
   const handleSubmitInput = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -294,27 +335,21 @@ export function useTerminal() {
     [appendOutput, inputValue],
   );
 
+  // Stop current code execution
   const handleStop = useCallback(() => {
     const socket = socketRef.current;
-    if (!socket || !isRunning) {
-      return;
-    }
+    if (!socket || !isRunning) return;
     socket.emit("stop");
     setIsRunning(false);
     emitRunExecutionState(false);
     setInputValue("");
   }, [isRunning]);
 
+  // Derive terminal status label for UI display
   const statusLabel = useMemo(() => {
-    if (isRunning && activeFileName) {
-      return `Running ${activeFileName}`;
-    }
-    if (connectionState === "connecting") {
-      return "Connecting…";
-    }
-    if (connectionState === "disconnected") {
-      return "Disconnected";
-    }
+    if (isRunning && activeFileName) return `Running ${activeFileName}`;
+    if (connectionState === "connecting") return "Connecting…";
+    if (connectionState === "disconnected") return "Disconnected";
     return "Idle";
   }, [activeFileName, connectionState, isRunning]);
 

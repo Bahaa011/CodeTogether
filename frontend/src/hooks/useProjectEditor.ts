@@ -1,3 +1,18 @@
+/**
+ * useProjectEditor Hook
+ *
+ * Provides a full-featured file management system for a project-based
+ * code editor. Handles fetching, editing, saving, creating, deleting,
+ * and syncing project files while maintaining a reactive editing state.
+ *
+ * Responsibilities:
+ * - Fetch and normalize project files from the backend.
+ * - Manage file opening, closing, and active file selection.
+ * - Track unsaved changes and handle file saving and error states.
+ * - Support new file creation, deletion, and content synchronization.
+ * - Expose an interface compatible with Monaco or similar editors.
+ */
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createProjectFile,
@@ -7,6 +22,18 @@ import {
   type ProjectFile,
 } from "../services/fileService";
 
+/**
+ * EditorFileState
+ *
+ * Represents a file currently being edited in the workspace.
+ * Extends the base `ProjectFile` type with editor-specific metadata.
+ *
+ * Fields:
+ * - draftContent: Unsaved code currently in the editor.
+ * - dirty: Whether the draft content differs from the saved version.
+ * - saving: Indicates whether the file is currently being saved.
+ * - saveError: Optional error message if the last save failed.
+ */
 export type EditorFileState = ProjectFile & {
   draftContent: string;
   dirty: boolean;
@@ -14,18 +41,33 @@ export type EditorFileState = ProjectFile & {
   saveError: string | null;
 };
 
+/**
+ * EditorState
+ *
+ * Internal structure managing all open and loaded files.
+ * - files: Mapping of file IDs to their editor states.
+ * - openFileIds: List of file IDs currently open in the editor.
+ * - activeFileId: The ID of the currently active (focused) file.
+ */
 type EditorState = {
   files: Record<number, EditorFileState>;
   openFileIds: number[];
   activeFileId: number | null;
 };
 
+/** Empty baseline editor state (used before a project is loaded). */
 const emptyState: EditorState = {
   files: {},
   openFileIds: [],
   activeFileId: null,
 };
 
+/**
+ * normalizeFiles
+ *
+ * Converts a list of raw `ProjectFile` objects into a normalized `EditorState`.
+ * Sorts files alphabetically and initializes editor metadata fields.
+ */
 function normalizeFiles(files: ProjectFile[]): EditorState {
   if (!files.length) {
     return emptyState;
@@ -54,6 +96,12 @@ function normalizeFiles(files: ProjectFile[]): EditorState {
   };
 }
 
+/**
+ * ProjectEditor
+ *
+ * Public interface returned by the `useProjectEditor` hook.
+ * Defines the reactive state and all available file operations.
+ */
 export type ProjectEditor = {
   files: EditorFileState[];
   openFiles: EditorFileState[];
@@ -61,11 +109,17 @@ export type ProjectEditor = {
   loading: boolean;
   error: string | null;
   hasUnsavedChanges: boolean;
+
+  // File management methods
   openFile(fileId: number): void;
   closeFile(fileId: number): void;
   selectFile(fileId: number): void;
+
+  // Editing and saving
   updateDraft(fileId: number, value: string | undefined): void;
   saveFile(fileId: number): Promise<boolean>;
+
+  // Data operations
   refresh(): Promise<void>;
   createFile(
     input: { filename: string; content?: string },
@@ -74,6 +128,12 @@ export type ProjectEditor = {
   deleteFile(fileId: number): Promise<void>;
 };
 
+/**
+ * deriveFileType
+ *
+ * Utility that infers a file’s language type from its filename extension.
+ * Used when creating new files to determine syntax highlighting.
+ */
 function deriveFileType(filename: string) {
   const ext = filename.toLowerCase().split(".").pop() ?? "";
   if (ext === "ts" || ext === "tsx") return "typescript";
@@ -102,15 +162,29 @@ function deriveFileType(filename: string) {
   return "plaintext";
 }
 
+/**
+ * useProjectEditor
+ *
+ * Main hook powering the project’s file editor interface.
+ * Fetches, tracks, and manages the lifecycle of project files.
+ *
+ * Parameters:
+ * - projectId: Current project ID to fetch and manage files for.
+ * - currentUserId: The ID of the user performing file operations.
+ *
+ * Returns a `ProjectEditor` object with reactive file data and editor methods.
+ */
 export function useProjectEditor(
   projectId?: number | null,
   currentUserId?: number | null,
 ): ProjectEditor {
+  // --- Core State ---
   const [state, setState] = useState<EditorState>(emptyState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isMountedRef = useRef(true);
 
+  // Track component mount status to avoid state updates after unmount
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -118,19 +192,19 @@ export function useProjectEditor(
     };
   }, []);
 
+  /**
+   * setFileState
+   *
+   * Utility to safely update a single file’s editor state.
+   * Ensures immutability and prevents stale updates.
+   */
   const setFileState = useCallback(
     (fileId: number, updater: (file: EditorFileState) => EditorFileState) => {
       setState((prev) => {
         const target = prev.files[fileId];
-        if (!target) {
-          return prev;
-        }
-
+        if (!target) return prev;
         const updated = updater(target);
-        if (updated === target) {
-          return prev;
-        }
-
+        if (updated === target) return prev;
         return {
           ...prev,
           files: {
@@ -143,10 +217,14 @@ export function useProjectEditor(
     [],
   );
 
+  /**
+   * refresh
+   *
+   * Refetches all project files and resets the editor state.
+   */
   const refresh = useCallback(async () => {
     if (!projectId) {
       if (!isMountedRef.current) return;
-
       setState(emptyState);
       setError("Select a project to load files.");
       return;
@@ -159,74 +237,68 @@ export function useProjectEditor(
 
     try {
       const files = await fetchProjectFiles(projectId);
-      if (!isMountedRef.current) {
-        return;
-      }
-      setState(normalizeFiles(files));
+      if (isMountedRef.current) setState(normalizeFiles(files));
     } catch (err) {
-      if (!isMountedRef.current) {
-        return;
-      }
-      setState(emptyState);
-      const message =
-        err instanceof Error ? err.message : "Unable to load project files.";
-      setError(message);
-    } finally {
       if (isMountedRef.current) {
-        setLoading(false);
+        setState(emptyState);
+        const message =
+          err instanceof Error ? err.message : "Unable to load project files.";
+        setError(message);
       }
+    } finally {
+      if (isMountedRef.current) setLoading(false);
     }
   }, [projectId]);
 
+  /**
+   * Effect: Initial file fetch when a project is selected.
+   */
   useEffect(() => {
     let cancelled = false;
+
     const load = async () => {
-      if (!projectId) {
-        if (cancelled || !isMountedRef.current) return;
-        setState(emptyState);
-        setError("Select a project to load files.");
+      if (!projectId || cancelled || !isMountedRef.current) {
+        if (!projectId && isMountedRef.current) {
+          setState(emptyState);
+          setError("Select a project to load files.");
+        }
         return;
       }
 
-      if (cancelled || !isMountedRef.current) return;
       setLoading(true);
       setError(null);
 
       try {
         const files = await fetchProjectFiles(projectId);
-        if (cancelled || !isMountedRef.current) return;
-        setState(normalizeFiles(files));
+        if (!cancelled && isMountedRef.current) setState(normalizeFiles(files));
       } catch (err) {
-        if (cancelled || !isMountedRef.current) return;
-        setState(emptyState);
-        const message =
-          err instanceof Error ? err.message : "Unable to load project files.";
-        setError(message);
-      } finally {
         if (!cancelled && isMountedRef.current) {
-          setLoading(false);
+          setState(emptyState);
+          const message =
+            err instanceof Error ? err.message : "Unable to load project files.";
+          setError(message);
         }
+      } finally {
+        if (!cancelled && isMountedRef.current) setLoading(false);
       }
     };
 
-    load();
-
+    void load();
     return () => {
       cancelled = true;
     };
   }, [projectId]);
 
+  /**
+   * openFile
+   *
+   * Opens a file in the editor. If already open, simply focuses it.
+   */
   const openFile = useCallback((fileId: number) => {
     setState((prev) => {
-      if (!prev.files[fileId]) {
-        return prev;
-      }
+      if (!prev.files[fileId]) return prev;
 
       const alreadyOpen = prev.openFileIds.includes(fileId);
-      if (alreadyOpen && prev.activeFileId === fileId) {
-        return prev;
-      }
-
       return {
         ...prev,
         openFileIds: alreadyOpen
@@ -237,12 +309,14 @@ export function useProjectEditor(
     });
   }, []);
 
+  /**
+   * closeFile
+   *
+   * Closes a file tab, adjusting the active file if needed.
+   */
   const closeFile = useCallback((fileId: number) => {
     setState((prev) => {
-      if (!prev.openFileIds.includes(fileId)) {
-        return prev;
-      }
-
+      if (!prev.openFileIds.includes(fileId)) return prev;
       const updatedOpenIds = prev.openFileIds.filter((id) => id !== fileId);
       let nextActive = prev.activeFileId;
 
@@ -251,11 +325,10 @@ export function useProjectEditor(
           nextActive = null;
         } else {
           const closedIndex = prev.openFileIds.indexOf(fileId);
-          if (closedIndex >= updatedOpenIds.length) {
-            nextActive = updatedOpenIds[updatedOpenIds.length - 1] ?? null;
-          } else {
-            nextActive = updatedOpenIds[closedIndex] ?? null;
-          }
+          nextActive =
+            updatedOpenIds[closedIndex] ??
+            updatedOpenIds[updatedOpenIds.length - 1] ??
+            null;
         }
       }
 
@@ -267,12 +340,14 @@ export function useProjectEditor(
     });
   }, []);
 
+  /**
+   * selectFile
+   *
+   * Focuses or opens a specific file.
+   */
   const selectFile = useCallback((fileId: number) => {
     setState((prev) => {
-      if (!prev.files[fileId] || prev.activeFileId === fileId) {
-        return prev;
-      }
-
+      if (!prev.files[fileId] || prev.activeFileId === fileId) return prev;
       return {
         ...prev,
         activeFileId: fileId,
@@ -283,6 +358,11 @@ export function useProjectEditor(
     });
   }, []);
 
+  /**
+   * updateDraft
+   *
+   * Updates the unsaved (draft) content of a file and marks it dirty.
+   */
   const updateDraft = useCallback(
     (fileId: number, value: string | undefined) => {
       const nextValue = value ?? "";
@@ -295,7 +375,6 @@ export function useProjectEditor(
         ) {
           return file;
         }
-
         return {
           ...file,
           draftContent: nextValue,
@@ -307,47 +386,35 @@ export function useProjectEditor(
     [setFileState],
   );
 
+  /**
+   * saveFile
+   *
+   * Persists the current file’s draft content to the backend.
+   * Returns true on success, false on failure.
+   */
   const saveFile = useCallback(
     async (fileId: number) => {
       const current = state.files[fileId];
-      if (!current) {
-        return false;
-      }
+      if (!current) return false;
 
-      // Skip hitting the API if nothing changed and there is no outstanding error.
-      if (!current.dirty && current.saveError === null) {
-        return true;
-      }
+      if (!current.dirty && current.saveError === null) return true;
 
       const contentToSave = current.draftContent;
 
-      setFileState(fileId, (file) => ({
-        ...file,
-        saving: true,
-        saveError: null,
-      }));
+      setFileState(fileId, (f) => ({ ...f, saving: true, saveError: null }));
 
       try {
-        const updated = await updateProjectFile(fileId, {
-          content: contentToSave,
-        });
+        const updated = await updateProjectFile(fileId, { content: contentToSave });
 
-        setFileState(fileId, (file) => {
-          const draftChangedWhileSaving =
-            file.draftContent !== contentToSave;
-          if (draftChangedWhileSaving) {
-            return {
-              ...file,
-              content: updated.content ?? "",
-              saving: false,
-            };
-          }
-
+        setFileState(fileId, (f) => {
+          const draftChangedWhileSaving = f.draftContent !== contentToSave;
           return {
-            ...file,
+            ...f,
             content: updated.content ?? "",
-            draftContent: updated.content ?? "",
-            dirty: false,
+            draftContent: draftChangedWhileSaving
+              ? f.draftContent
+              : updated.content ?? "",
+            dirty: draftChangedWhileSaving,
             saving: false,
             saveError: null,
             filename: updated.filename,
@@ -360,31 +427,25 @@ export function useProjectEditor(
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Failed to save file.";
-        setFileState(fileId, (file) => ({
-          ...file,
-          saving: false,
-          saveError: message,
-        }));
+        setFileState(fileId, (f) => ({ ...f, saving: false, saveError: message }));
         return false;
       }
     },
     [setFileState, state.files],
   );
 
+  /**
+   * createFile
+   *
+   * Creates a new project file on the backend and opens it in the editor.
+   */
   const createFile = useCallback(
     async (input: { filename: string; content?: string }) => {
-      if (!projectId) {
-        throw new Error("Select a project before creating files.");
-      }
-
-      if (!currentUserId) {
-        throw new Error("You need to be logged in to create files.");
-      }
+      if (!projectId) throw new Error("Select a project before creating files.");
+      if (!currentUserId) throw new Error("You need to be logged in to create files.");
 
       const trimmedName = input.filename.trim();
-      if (!trimmedName) {
-        throw new Error("Filename is required.");
-      }
+      if (!trimmedName) throw new Error("Filename is required.");
 
       const payload = {
         filename: trimmedName,
@@ -404,28 +465,27 @@ export function useProjectEditor(
         saveError: null,
       };
 
-      setState((prev) => {
-        const alreadyOpen = prev.openFileIds.includes(created.id);
-        return {
-          ...prev,
-          files: {
-            ...prev.files,
-            [created.id]: newFileState,
-          },
-          openFileIds: alreadyOpen
-            ? prev.openFileIds
-            : [...prev.openFileIds, created.id],
-          activeFileId: created.id,
-        };
-      });
+      setState((prev) => ({
+        ...prev,
+        files: { ...prev.files, [created.id]: newFileState },
+        openFileIds: prev.openFileIds.includes(created.id)
+          ? prev.openFileIds
+          : [...prev.openFileIds, created.id],
+        activeFileId: created.id,
+      }));
 
       setError(null);
-
       return newFileState;
     },
     [projectId, currentUserId],
   );
 
+  /**
+   * syncFileContent
+   *
+   * Updates the file’s content (used for collaboration or version sync).
+   * Optionally marks the file as clean.
+   */
   const syncFileContent = useCallback(
     (fileId: number, content: string, markClean = false) => {
       setFileState(fileId, (file) => ({
@@ -439,12 +499,15 @@ export function useProjectEditor(
     [setFileState],
   );
 
+  /**
+   * deleteFile
+   *
+   * Permanently removes a file from the project and closes its tab.
+   */
   const deleteFile = useCallback(async (fileId: number) => {
     await deleteProjectFile(fileId);
     setState((prev) => {
-      if (!prev.files[fileId]) {
-        return prev;
-      }
+      if (!prev.files[fileId]) return prev;
       const { [fileId]: _, ...rest } = prev.files;
       const nextOpenIds = prev.openFileIds.filter((id) => id !== fileId);
       let nextActiveId = prev.activeFileId;
@@ -455,7 +518,6 @@ export function useProjectEditor(
             ? Number(Object.keys(rest)[0])
             : null);
       }
-
       return {
         files: rest,
         openFileIds: nextOpenIds,
@@ -464,11 +526,9 @@ export function useProjectEditor(
     });
   }, []);
 
+  // --- Derived values ---
   const files = useMemo(
-    () =>
-      Object.values(state.files).sort((a, b) =>
-        a.filename.localeCompare(b.filename),
-      ),
+    () => Object.values(state.files).sort((a, b) => a.filename.localeCompare(b.filename)),
     [state.files],
   );
 
@@ -484,8 +544,9 @@ export function useProjectEditor(
     ? state.files[state.activeFileId] ?? undefined
     : undefined;
 
-  const hasUnsavedChanges = openFiles.some((file) => file.dirty);
+  const hasUnsavedChanges = openFiles.some((f) => f.dirty);
 
+  // --- Return Hook API ---
   return {
     files,
     openFiles,

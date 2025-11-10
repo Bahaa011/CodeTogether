@@ -1,6 +1,18 @@
+/**
+ * Project API Service
+ * -------------------
+ * Provides all frontend operations for managing projects,
+ * including creation, retrieval, updating, deletion, and tag handling.
+ */
+
 import axios from "axios";
 import { apiClient, buildAxiosError } from "./apiClient";
 
+/**
+ * ProjectCollaborator
+ * --------------------
+ * Represents a collaborator on a specific project.
+ */
 export type ProjectCollaborator = {
   id: number;
   role?: string;
@@ -12,11 +24,21 @@ export type ProjectCollaborator = {
   };
 };
 
+/**
+ * ProjectTag
+ * -----------
+ * Represents a tag attached to a project for categorization.
+ */
 export type ProjectTag = {
   id: number;
   tag: string;
 };
 
+/**
+ * Project
+ * --------
+ * Defines the structure of a project entity.
+ */
 export type Project = {
   id: number;
   title: string;
@@ -35,6 +57,11 @@ export type Project = {
   tags?: ProjectTag[];
 };
 
+/**
+ * fetchProjectCount
+ * ------------------
+ * Retrieves the number of projects owned by a specific user.
+ */
 export async function fetchProjectCount(ownerId: number) {
   try {
     const { data } = await apiClient.get<{ owner_id: number; count: number }>(
@@ -46,6 +73,11 @@ export async function fetchProjectCount(ownerId: number) {
   }
 }
 
+/**
+ * fetchProjectsByOwner
+ * ---------------------
+ * Retrieves all projects created by a specific user.
+ */
 export async function fetchProjectsByOwner(ownerId: number) {
   try {
     const { data } = await apiClient.get<Project[]>(`/projects/owner/${ownerId}`);
@@ -58,6 +90,11 @@ export async function fetchProjectsByOwner(ownerId: number) {
   }
 }
 
+/**
+ * fetchProjects
+ * --------------
+ * Retrieves all publicly available projects.
+ */
 export async function fetchProjects() {
   try {
     const { data } = await apiClient.get<Project[]>("/projects/public");
@@ -67,6 +104,11 @@ export async function fetchProjects() {
   }
 }
 
+/**
+ * CreateProjectPayload
+ * ---------------------
+ * Defines the structure used to create a new project.
+ */
 type CreateProjectPayload = {
   title: string;
   description: string;
@@ -75,6 +117,11 @@ type CreateProjectPayload = {
   tags?: string[];
 };
 
+/**
+ * createProject
+ * --------------
+ * Creates a new project owned by a specific user.
+ */
 export async function createProject(payload: CreateProjectPayload) {
   try {
     const { data } = await apiClient.post<Project>("/projects", payload);
@@ -84,6 +131,11 @@ export async function createProject(payload: CreateProjectPayload) {
   }
 }
 
+/**
+ * fetchProjectById
+ * -----------------
+ * Retrieves detailed information about a project by its ID.
+ */
 export async function fetchProjectById(projectId: number) {
   try {
     const { data } = await apiClient.get<Project>(`/projects/${projectId}`);
@@ -93,6 +145,11 @@ export async function fetchProjectById(projectId: number) {
   }
 }
 
+/**
+ * UpdateProjectPayload
+ * ---------------------
+ * Defines fields that can be updated in an existing project.
+ */
 type UpdateProjectPayload = Partial<{
   title: string;
   description: string;
@@ -100,6 +157,11 @@ type UpdateProjectPayload = Partial<{
   tags: string[];
 }>;
 
+/**
+ * updateProject
+ * --------------
+ * Updates project information such as title, description, visibility, or tags.
+ */
 export async function updateProject(projectId: number, payload: UpdateProjectPayload) {
   try {
     const { data } = await apiClient.put<{ project: Project }>(
@@ -112,6 +174,11 @@ export async function updateProject(projectId: number, payload: UpdateProjectPay
   }
 }
 
+/**
+ * deleteProject
+ * --------------
+ * Deletes a project permanently by its project ID.
+ */
 export async function deleteProject(projectId: number) {
   try {
     await apiClient.delete(`/projects/${projectId}`);

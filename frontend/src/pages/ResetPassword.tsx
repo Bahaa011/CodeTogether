@@ -1,3 +1,14 @@
+/**
+ * ResetPassword Page
+ * -------------------
+ * Provides a secure interface for users to reset their password.
+ * 
+ * Features:
+ * - Token-based password reset validation
+ * - New password and confirmation fields
+ * - Error handling and success redirect to login
+ */
+
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useResetPasswordForm } from "../hooks/useAuthForms";
 import "../styles/auth.css";
@@ -6,7 +17,10 @@ export default function ResetPassword() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
+  // Extract reset token from URL query string
   const token = searchParams.get("token") ?? "";
+
+  // Initialize custom password reset form logic
   const {
     password,
     setPassword,
@@ -24,10 +38,21 @@ export default function ResetPassword() {
       }),
   });
 
+  /**
+   * handleBackToLogin
+   * ------------------
+   * Redirects the user back to the login page.
+   */
   const handleBackToLogin = () => {
     navigate("/login");
   };
 
+  /**
+   * JSX Return
+   * -----------
+   * Displays the password reset form with controlled inputs,
+   * submission handling, and navigation options.
+   */
   return (
     <div className="auth-page">
       <section className="auth-card">
@@ -39,6 +64,7 @@ export default function ResetPassword() {
         </div>
 
         {error && <div className="auth-alert">{error}</div>}
+
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="auth-field">
             <label htmlFor="reset-password" className="auth-label">

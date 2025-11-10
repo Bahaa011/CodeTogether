@@ -1,3 +1,10 @@
+/**
+ * LoginDto
+ * ---------
+ * Defines the data structure for user login requests.
+ * Ensures valid email and password format during authentication.
+ */
+
 import { IsEmail, IsNotEmpty, MinLength } from 'class-validator';
 
 export class LoginDto {

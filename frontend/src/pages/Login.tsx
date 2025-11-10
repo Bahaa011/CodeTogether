@@ -1,14 +1,43 @@
+/**
+ * Login Page
+ * ------------
+ * Provides the authentication interface for users to access CodeTogether.
+ *
+ * Features:
+ * - Email/password login with real-time validation
+ * - MFA (multi-factor authentication) verification flow
+ * - Password reset modal (triggered within the login form)
+ * - Redirects users to intended destination post-login
+ *
+ * Components:
+ * - Modal (for password reset)
+ * - useLoginForm (manages authentication logic and state)
+ * - Integrated support for redirect persistence via react-router state
+ */
+
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useLoginForm } from "../hooks/useAuthForms";
 import Modal from "../components/modal/Modal";
 import "../styles/auth.css";
 
+/**
+ * LocationState
+ * ---------------
+ * Defines optional state passed via router navigation:
+ * - from: previous protected route path
+ * - resetSuccess: success message from password reset flow
+ */
 type LocationState = {
   from?: string;
   resetSuccess?: string;
 };
 
 export default function Login() {
+  /**
+   * Routing & Navigation
+   * ---------------------
+   * Handles incoming redirect paths and post-authentication navigation.
+   */
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as LocationState | null;
@@ -16,6 +45,15 @@ export default function Login() {
   const incomingResetSuccess = locationState?.resetSuccess;
   const redirectPath = redirectFrom || "/";
 
+  /**
+   * useLoginForm Hook
+   * ------------------
+   * Manages the authentication logic, form state, and multi-factor steps.
+   * Returns:
+   * - Authentication state and form fields
+   * - MFA-specific handlers
+   * - Password reset modal control
+   */
   const {
     hasToken,
     email,
@@ -55,12 +93,23 @@ export default function Login() {
     redirectState: redirectFrom ? { from: redirectFrom } : undefined,
   });
 
+  /**
+   * Authentication Guard
+   * ---------------------
+   * Redirects authenticated users immediately to their target page.
+   */
   if (hasToken) {
     return <Navigate to={redirectPath} replace />;
   }
 
+  /**
+   * JSX Return
+   * -----------
+   * Contains both main authentication form and conditional MFA & password reset logic.
+   */
   return (
     <>
+      {/* ------------------ Login Card ------------------ */}
       <div className="auth-page">
         <section className="auth-card">
           <div className="auth-header">
@@ -68,11 +117,13 @@ export default function Login() {
             <p className="auth-subtitle">{headerSubtitle}</p>
           </div>
 
+          {/* Success / Error Feedback */}
           {!requiresMfa && loginSuccessMessage && (
             <div className="auth-success">{loginSuccessMessage}</div>
           )}
           {error && <div className="auth-alert">{error}</div>}
 
+          {/* ------------------ MFA Verification ------------------ */}
           {requiresMfa ? (
             <div className="auth-mfa-card">
               <form className="auth-mfa-form" onSubmit={handleVerifyMfa}>
@@ -97,6 +148,7 @@ export default function Login() {
                     disabled={isVerifyingMfa}
                   />
                 </div>
+
                 <div className="auth-mfa-actions">
                   <button
                     type="button"
@@ -117,6 +169,7 @@ export default function Login() {
               </form>
             </div>
           ) : (
+            /* ------------------ Standard Login Form ------------------ */
             <>
               <form className="auth-form" onSubmit={handleSubmit}>
                 <div className="auth-field">
@@ -169,6 +222,7 @@ export default function Login() {
                 </button>
               </form>
 
+              {/* Registration link */}
               <p className="auth-footer">
                 Need an account?{" "}
                 <button
@@ -187,6 +241,7 @@ export default function Login() {
         </section>
       </div>
 
+      {/* ------------------ Password Reset Modal ------------------ */}
       <Modal
         open={isResetOpen}
         onClose={closeResetModal}
@@ -210,8 +265,8 @@ export default function Login() {
               {isResetSubmitting
                 ? "Sending…"
                 : resetSuccess
-                  ? "Email Sent"
-                  : "Send Reset Link"}
+                ? "Email Sent"
+                : "Send Reset Link"}
             </button>
           </div>
         }
@@ -236,8 +291,7 @@ export default function Login() {
               disabled={isResetSubmitting || Boolean(resetSuccess)}
             />
             <p className="modal-helper">
-              We&apos;ll send a link to reset your password if the account
-              exists.
+              We&apos;ll send a link to reset your password if the account exists.
             </p>
           </div>
 

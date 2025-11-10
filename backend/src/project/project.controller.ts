@@ -1,3 +1,10 @@
+/**
+ * ProjectController
+ * -----------------
+ * Manages project-related REST API endpoints.
+ * Handles creation, retrieval, updates, and deletion of projects.
+ */
+
 import {
   Controller,
   Get,
@@ -16,7 +23,10 @@ import { CreateProjectDto, UpdateProjectDto } from './dto/project.dto';
 export class ProjectController {
   constructor(private readonly service: ProjectService) {}
 
-  // ---------------- GET ----------------
+  /**
+   * Retrieve all projects.
+   * Throws 404 if none exist.
+   */
   @Get()
   async findAll() {
     const projects = await this.service.getAllProjects();
@@ -25,6 +35,9 @@ export class ProjectController {
     return projects;
   }
 
+  /**
+   * Retrieve all public projects.
+   */
   @Get('public')
   async findPublic() {
     const projects = await this.service.getPublicProjects();
@@ -33,12 +46,18 @@ export class ProjectController {
     return projects;
   }
 
+  /**
+   * Get the total number of projects owned by a specific user.
+   */
   @Get('owner/:owner_id/count')
   async countByOwner(@Param('owner_id') owner_id: number) {
     const count = await this.service.countProjectsByOwner(owner_id);
     return { owner_id: Number(owner_id), count };
   }
 
+  /**
+   * Retrieve all projects belonging to a specific owner.
+   */
   @Get('owner/:owner_id')
   async findByOwner(@Param('owner_id') owner_id: number) {
     const projects = await this.service.getProjectsByOwner(owner_id);
@@ -47,6 +66,9 @@ export class ProjectController {
     return projects;
   }
 
+  /**
+   * Retrieve a single project by its unique ID.
+   */
   @Get(':id')
   async findById(@Param('id') id: number) {
     const project = await this.service.getProjectById(id);
@@ -54,7 +76,10 @@ export class ProjectController {
     return project;
   }
 
-  // ---------------- POST ----------------
+  /**
+   * Create a new project.
+   * Requires title, description, and owner_id.
+   */
   @Post()
   async create(@Body() createDto: CreateProjectDto) {
     const { title, description, owner_id, is_public, tags } = createDto;
@@ -71,7 +96,10 @@ export class ProjectController {
     });
   }
 
-  // ---------------- PUT ----------------
+  /**
+   * Update an existing project by ID.
+   * Throws 404 if project not found.
+   */
   @Put(':id')
   async update(@Param('id') id: number, @Body() updateDto: UpdateProjectDto) {
     if (!updateDto || Object.keys(updateDto).length === 0)
@@ -83,7 +111,10 @@ export class ProjectController {
     return { message: 'Project updated successfully', project: updated };
   }
 
-  // ---------------- DELETE ----------------
+  /**
+   * Delete a project by its ID.
+   * Throws 404 if not found.
+   */
   @Delete(':id')
   async delete(@Param('id') id: number) {
     const success = await this.service.deleteProject(id);

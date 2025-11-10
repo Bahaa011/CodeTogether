@@ -1,3 +1,10 @@
+/**
+ * UserController
+ * ---------------
+ * Exposes user-related REST API endpoints.
+ * Handles user retrieval, registration, profile updates, avatar uploads, and deletion.
+ */
+
 import {
   BadRequestException,
   Body,
@@ -31,7 +38,10 @@ if (!existsSync(AVATAR_UPLOAD_DIR)) {
 export class UserController {
   constructor(private readonly service: UserService) {}
 
-  // ---------------- GET ----------------
+  /**
+   * Get all registered users.
+   * Throws 404 if none found.
+   */
   @Get()
   async findAll() {
     const users = await this.service.getAllUsers();
@@ -40,6 +50,9 @@ export class UserController {
     return users;
   }
 
+  /**
+   * Get a single user by ID.
+   */
   @Get(':id')
   async findById(@Param('id') id: number) {
     const user = await this.service.getUserById(id);
@@ -47,14 +60,18 @@ export class UserController {
     return user;
   }
 
-  // ---------------- POST ----------------
+  /**
+   * Register a new user.
+   */
   @Post('register')
   async register(@Body() dto: RegisterUserDto) {
     const { username, email, password } = dto;
     return await this.service.createUser(username, email, password);
   }
 
-  // ---------------- PUT ----------------
+  /**
+   * Update a user's profile details (avatar URL or bio).
+   */
   @Put(':id')
   async updateProfile(
     @Param('id', ParseIntPipe) id: number,
@@ -70,6 +87,10 @@ export class UserController {
     return { message: 'Profile updated successfully', user: updated };
   }
 
+  /**
+   * Upload a new avatar image for a user.
+   * Accepts image files up to 2 MB in size.
+   */
   @Post(':id/avatar')
   @UseInterceptors(
     FileInterceptor('avatar', {
@@ -88,15 +109,13 @@ export class UserController {
     @UploadedFile(
       new ParseFilePipe({
         validators: [
-          new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }),
+          new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }), // 2 MB limit
         ],
       }),
     )
     file: Express.Multer.File,
   ) {
-    if (!file) {
-      throw new BadRequestException('No file uploaded.');
-    }
+    if (!file) throw new BadRequestException('No file uploaded.');
 
     const allowedMimeTypes = [
       'image/png',
@@ -118,7 +137,9 @@ export class UserController {
     return { message: 'Avatar updated successfully', user: updated };
   }
 
-  // ---------------- DELETE ----------------
+  /**
+   * Delete a user by ID.
+   */
   @Delete(':id')
   async deleteUser(@Param('id') id: number) {
     const success = await this.service.deleteUser(id);

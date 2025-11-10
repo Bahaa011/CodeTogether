@@ -1,7 +1,22 @@
+/**
+ * Settings Page
+ * --------------
+ * Provides a unified control center for user preferences, appearance,
+ * account security, and workspace configurations.
+ *
+ * Includes:
+ * - Light/Dark theme toggle
+ * - Profile management (bio, avatar)
+ * - MFA (multi-factor authentication) control
+ * - Accessibility and layout consistency
+ */
+
+import { useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import "../styles/settings.css";
 import { useTheme } from "../hooks/useTheme";
 import { useSettingsPage } from "../hooks/useSettingsPage";
+import EditProfileModal from "../components/modal/EditProfileModal";
 
 export default function Settings() {
   const {
@@ -15,12 +30,28 @@ export default function Settings() {
   } = useSettingsPage();
   const { theme, setTheme } = useTheme();
 
+  // Modal state for editing profile
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+
+  /**
+   * handleThemeSelect
+   * ------------------
+   * Updates the app’s visual theme preference.
+   */
   const handleThemeSelect = (value: "light" | "dark") => {
     setTheme(value);
   };
 
+  /**
+   * renderAppearanceCard
+   * ---------------------
+   * Renders the section for selecting between light and dark modes.
+   */
   const renderAppearanceCard = () => (
-    <section className="settings-card settings-card--appearance" aria-labelledby="appearance-settings-heading">
+    <section
+      className="settings-card settings-card--appearance"
+      aria-labelledby="appearance-settings-heading"
+    >
       <div className="settings-card-eyebrow">Display</div>
       <div className="settings-card-heading">
         <div>
@@ -37,7 +68,11 @@ export default function Settings() {
       <div className="appearance-toggle" role="group" aria-label="Theme options">
         <button
           type="button"
-          className={theme === "light" ? "appearance-toggle__option appearance-toggle__option--active" : "appearance-toggle__option"}
+          className={
+            theme === "light"
+              ? "appearance-toggle__option appearance-toggle__option--active"
+              : "appearance-toggle__option"
+          }
           onClick={() => handleThemeSelect("light")}
           aria-pressed={theme === "light"}
         >
@@ -46,7 +81,11 @@ export default function Settings() {
         </button>
         <button
           type="button"
-          className={theme === "dark" ? "appearance-toggle__option appearance-toggle__option--active" : "appearance-toggle__option"}
+          className={
+            theme === "dark"
+              ? "appearance-toggle__option appearance-toggle__option--active"
+              : "appearance-toggle__option"
+          }
           onClick={() => handleThemeSelect("dark")}
           aria-pressed={theme === "dark"}
         >
@@ -70,6 +109,11 @@ export default function Settings() {
     </section>
   );
 
+  /**
+   * renderGeneralCard
+   * ------------------
+   * Displays general workspace-related preferences (e.g. profile management).
+   */
   const renderGeneralCard = () => (
     <section className="settings-card" aria-labelledby="general-settings-heading">
       <div className="settings-card-eyebrow">Workspace</div>
@@ -87,7 +131,11 @@ export default function Settings() {
               Edit your bio, avatar, and username from the profile page.
             </p>
           </div>
-          <button type="button" className="settings-action" disabled>
+          <button
+            type="button"
+            className="settings-action"
+            onClick={() => setEditProfileOpen(true)}
+          >
             Manage
           </button>
         </li>
@@ -106,6 +154,11 @@ export default function Settings() {
     </section>
   );
 
+  /**
+   * renderPrivacyCard
+   * ------------------
+   * Displays privacy and security settings, including MFA.
+   */
   const renderPrivacyCard = () => (
     <section className="settings-card" aria-labelledby="privacy-settings-heading">
       <div className="settings-card-eyebrow">Security</div>
@@ -151,6 +204,11 @@ export default function Settings() {
     </section>
   );
 
+  /**
+   * renderContent
+   * --------------
+   * Handles conditional rendering based on authentication state.
+   */
   const renderContent = () => {
     if (!isAuthenticated) {
       return (
@@ -175,6 +233,11 @@ export default function Settings() {
     );
   };
 
+  /**
+   * JSX Return
+   * -----------
+   * Main page layout containing header, alerts, and modals.
+   */
   return (
     <div className="settings-page">
       <header className="settings-header">
@@ -204,6 +267,17 @@ export default function Settings() {
       )}
 
       {renderContent()}
+
+      {editProfileOpen && (
+        <EditProfileModal
+          open={editProfileOpen}
+          onClose={() => setEditProfileOpen(false)}
+          initialBio={user?.bio ?? ""}
+          initialAvatarUrl={user?.avatar_url ?? null}
+          onSave={async () => setEditProfileOpen(false)}
+          onUploadAvatar={async (file: File) => URL.createObjectURL(file)}
+        />
+      )}
     </div>
   );
 }

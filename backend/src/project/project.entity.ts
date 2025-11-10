@@ -1,51 +1,65 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, OneToMany, CreateDateColumn, UpdateDateColumn, RelationId, JoinColumn } from 'typeorm';
+/**
+ * Project Entity
+ * ---------------
+ * Represents a collaborative coding project within the CodeTogether platform.
+ * Each project is owned by a user and can have collaborators, files, sessions and tags.
+ */
+
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  OneToMany,
+  CreateDateColumn,
+  UpdateDateColumn,
+  RelationId,
+  JoinColumn,
+} from 'typeorm';
 import { User } from '../user/user.entity';
 import { Collaborator } from '../collaborator/collaborator.entity';
 import { File } from '../file/file.entity';
 import { Session } from '../session/session.entity';
 import { ProjectTag } from '../project-tag/project-tag.entity';
-import { Comment } from '../comment/comment.entity';
 
 @Entity('projects')
 export class Project {
   @PrimaryGeneratedColumn()
-  id: number;
+  id: number; // Primary key
 
   @Column()
-  title: string;
+  title: string; // Project title
 
   @Column('text')
-  description: string;
+  description: string; // Detailed project description
 
   @CreateDateColumn()
-  created_at: Date;
+  created_at: Date; // Timestamp when the project was created
 
   @UpdateDateColumn()
-  updated_at: Date;
+  updated_at: Date; // Timestamp when the project was last updated
 
   @Column({ default: false })
-  is_public: boolean;
+  is_public: boolean; // Visibility flag (public or private)
 
-  // Relations
+  // ---------- Relations ----------
+
   @ManyToOne(() => User, (user) => user.projects, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'owner_id' })
-  owner: User;
+  owner: User; // Owner of the project
 
   @RelationId((project: Project) => project.owner)
-  ownerId: number;
+  ownerId: number; // Direct reference to owner's ID
 
   @OneToMany(() => Collaborator, (collaborator) => collaborator.project)
-  collaborators: Collaborator[];
+  collaborators: Collaborator[]; // Collaborators participating in the project
 
   @OneToMany(() => File, (file) => file.project)
-  files: File[];
+  files: File[]; // Files associated with the project
 
   @OneToMany(() => Session, (session) => session.project)
-  sessions: Session[];
+  sessions: Session[]; // Active or past sessions for this project
 
   @OneToMany(() => ProjectTag, (tag) => tag.project)
-  tags: ProjectTag[];
-
-  @OneToMany(() => Comment, (comment) => comment.project)
-  comments: Comment[];
+  tags: ProjectTag[]; // Tags used for categorization or labeling
 }

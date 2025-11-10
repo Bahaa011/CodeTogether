@@ -12,6 +12,9 @@ import {
 } from 'class-validator';
 import { MAX_PROJECT_TAGS, PROJECT_TAG_OPTIONS } from '../project.constants';
 
+/**
+ * DTO for creating a new project.
+ */
 export class CreateProjectDto {
   @IsString()
   @IsNotEmpty()
@@ -37,6 +40,9 @@ export class CreateProjectDto {
   tags?: string[];
 }
 
+/**
+ * DTO for updating an existing project.
+ */
 export class UpdateProjectDto {
   @IsOptional()
   @IsString()

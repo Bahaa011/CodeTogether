@@ -1,3 +1,10 @@
+/**
+ * FileController
+ * ---------------
+ * Manages API endpoints for file operations within projects.
+ * Handles file creation, retrieval, updating, and deletion.
+ */
+
 import {
   Controller,
   Get,
@@ -17,13 +24,19 @@ import { CreateFileDto, UpdateFileDto } from './dto/file.dto';
 export class FileController {
   constructor(private readonly service: FileService) {}
 
-  // ---------------- GET ----------------
+  /**
+   * Retrieve all files.
+   */
   @Get()
   async findAll() {
     const files = await this.service.getAllFiles();
     return files;
   }
 
+  /**
+   * Retrieve a file by its unique ID.
+   * Throws 404 if the file is not found.
+   */
   @Get(':id')
   async findById(@Param('id', ParseIntPipe) id: number) {
     const file = await this.service.getFileById(id);
@@ -31,17 +44,21 @@ export class FileController {
     return file;
   }
 
+  /**
+   * Retrieve all files belonging to a specific project.
+   */
   @Get('project/:projectId')
   async findByProject(@Param('projectId', ParseIntPipe) projectId: number) {
     const files = await this.service.getFilesByProject(projectId);
     return files;
   }
 
-  // ---------------- POST ----------------
+  /**
+   * Create a new file within a project.
+   */
   @Post()
   async create(@Body() createDto: CreateFileDto) {
     const { filename, file_type, content, projectId, uploaderId } = createDto;
-
     return await this.service.createFile(
       filename,
       file_type,
@@ -51,7 +68,10 @@ export class FileController {
     );
   }
 
-  // ---------------- PUT ----------------
+  /**
+   * Update an existing file.
+   * Throws 404 if the file does not exist.
+   */
   @Put(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -65,7 +85,10 @@ export class FileController {
     return { file: updated };
   }
 
-  // ---------------- DELETE ----------------
+  /**
+   * Delete a file by its ID.
+   * Throws 404 if the file is not found.
+   */
   @Delete(':id')
   async delete(@Param('id', ParseIntPipe) id: number) {
     const success = await this.service.deleteFile(id);

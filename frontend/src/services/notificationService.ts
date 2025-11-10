@@ -1,5 +1,17 @@
+/**
+ * Notification API Service
+ * ------------------------
+ * Handles all notification-related frontend API operations,
+ * including retrieval and read-status updates for user notifications.
+ */
+
 import { apiClient, buildAxiosError } from "./apiClient";
 
+/**
+ * NotificationMetadata
+ * ---------------------
+ * Represents metadata for notifications, such as collaboration invites.
+ */
 export type NotificationMetadata = {
   projectId?: number;
   projectTitle?: string;
@@ -11,6 +23,11 @@ export type NotificationMetadata = {
   [key: string]: unknown;
 };
 
+/**
+ * Notification
+ * -------------
+ * Represents a user notification record.
+ */
 export type Notification = {
   id: number;
   message: string;
@@ -22,6 +39,11 @@ export type Notification = {
   metadata?: NotificationMetadata | null;
 };
 
+/**
+ * fetchNotificationsForUser
+ * --------------------------
+ * Retrieves all notifications belonging to a specific user.
+ */
 export async function fetchNotificationsForUser(userId: number) {
   try {
     const { data } = await apiClient.get<Notification[]>(
@@ -33,14 +55,20 @@ export async function fetchNotificationsForUser(userId: number) {
   }
 }
 
+/**
+ * markNotificationRead
+ * ---------------------
+ * Updates the read status of a notification.
+ */
 export async function markNotificationRead(
   notificationId: number,
   isRead: boolean,
 ) {
   try {
-    const { data } = await apiClient.put<Notification>(`/notifications/${notificationId}`, {
-      is_read: isRead,
-    });
+    const { data } = await apiClient.put<Notification>(
+      `/notifications/${notificationId}`,
+      { is_read: isRead },
+    );
     return data;
   } catch (error) {
     throw buildAxiosError("Update notification", error);

@@ -1,3 +1,10 @@
+/**
+ * Version Entity
+ * ---------------
+ * Represents a saved version of a file in the CodeTogether platform.
+ * Each version stores its content, metadata, and relationships to file, user, and session.
+ */
+
 import {
   Entity,
   Column,
@@ -9,7 +16,6 @@ import {
 import { File } from '../file/file.entity';
 import { User } from '../user/user.entity';
 import { Session } from '../session/session.entity';
-import { Comment } from '../comment/comment.entity';
 
 @Entity('versions')
 export class Version {
@@ -17,26 +23,23 @@ export class Version {
   id: number;
 
   @ManyToOne(() => File, (file) => file.versions, { onDelete: 'CASCADE' })
-  file: File;
+  file: File; // The file this version belongs to
 
   @ManyToOne(() => User, (user) => user.versions, { onDelete: 'SET NULL', nullable: true })
-  user: User;
+  user: User; // User who created the version (nullable)
 
   @ManyToOne(() => Session, (session) => session.versions, { onDelete: 'SET NULL', nullable: true })
-  session: Session;
+  session: Session; // Session during which this version was created (nullable)
 
   @Column({ type: 'text' })
-  content: string;
+  content: string; // File content snapshot for this version
 
   @Column({ type: 'varchar', length: 255, nullable: true })
-  label: string | null;
+  label: string | null; // Optional label or note for this version
 
   @Column()
-  version_number: number;
+  version_number: number; // Sequential version number
 
   @CreateDateColumn()
-  created_at: Date;
-
-  @OneToMany(() => Comment, (comment) => comment.version)
-  comments: Comment[];
+  created_at: Date; // Timestamp when version was created
 }

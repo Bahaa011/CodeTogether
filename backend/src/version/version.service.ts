@@ -1,3 +1,10 @@
+/**
+ * VersionService
+ * ---------------
+ * Handles version management for project files.
+ * Supports creating, retrieving, and reverting file versions.
+ */
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -13,6 +20,10 @@ export class VersionService {
     private readonly fileRepo: Repository<File>,
   ) {}
 
+  /**
+   * Create a new version of a file.
+   * Automatically increments the version number based on the latest version.
+   */
   async createVersion(
     fileId: number,
     userId: number | null | undefined,
@@ -37,21 +48,16 @@ export class VersionService {
       content,
       version_number: nextVersion,
       label: label?.trim() ? label.trim() : null,
-      ...(normalizedUserId
-        ? {
-            user: { id: normalizedUserId },
-          }
-        : {}),
-      ...(normalizedSessionId
-        ? {
-            session: { id: normalizedSessionId },
-          }
-        : {}),
+      ...(normalizedUserId ? { user: { id: normalizedUserId } } : {}),
+      ...(normalizedSessionId ? { session: { id: normalizedSessionId } } : {}),
     });
 
     return await this.versionRepo.save(version);
   }
 
+  /**
+   * Get all versions for a specific file (most recent first).
+   */
   async getFileVersions(fileId: number) {
     return await this.versionRepo.find({
       where: { file: { id: Number(fileId) } },
@@ -60,6 +66,9 @@ export class VersionService {
     });
   }
 
+  /**
+   * Get the latest version of a given file.
+   */
   async getLatestVersion(fileId: number) {
     return await this.versionRepo.findOne({
       where: { file: { id: Number(fileId) } },
@@ -67,6 +76,10 @@ export class VersionService {
     });
   }
 
+  /**
+   * Get a version by its unique ID.
+   * Includes related file, user, and session data.
+   */
   async getVersionById(id: number) {
     return await this.versionRepo.findOne({
       where: { id: Number(id) },
@@ -74,6 +87,10 @@ export class VersionService {
     });
   }
 
+  /**
+   * Revert a file to the content of a specified version.
+   * Throws a NotFoundException if version or file does not exist.
+   */
   async revertVersion(versionId: number) {
     const version = await this.versionRepo.findOne({
       where: { id: Number(versionId) },

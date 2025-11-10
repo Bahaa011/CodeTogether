@@ -1,3 +1,10 @@
+/**
+ * text-ot.ts
+ * ------------
+ * Implements the core Operational Transformation (OT) logic for real-time text collaboration.
+ * Provides utility functions to apply, normalize, and transform text operations safely and efficiently.
+ */
+
 export type TextComponent =
   | { retain: number }
   | { insert: string }
@@ -5,32 +12,47 @@ export type TextComponent =
 
 export type TextOperation = TextComponent[];
 
-type ComponentType = "retain" | "insert" | "delete" | "none";
+type ComponentType = 'retain' | 'insert' | 'delete' | 'none';
 
+/* -------------------------------------------------------------
+ * Utility: Determine component type and length
+ * ------------------------------------------------------------- */
+
+/**
+ * Identify the type of a text operation component.
+ */
 function componentType(component: TextComponent | null | undefined): ComponentType {
-  if (!component) return "none";
-  if ("retain" in component) return "retain";
-  if ("insert" in component) return "insert";
-  if ("delete" in component) return "delete";
-  return "none";
+  if (!component) return 'none';
+  if ('retain' in component) return 'retain';
+  if ('insert' in component) return 'insert';
+  if ('delete' in component) return 'delete';
+  return 'none';
 }
 
+/**
+ * Get the logical length of a text operation component.
+ */
 function componentLength(component: TextComponent): number {
-  if ("retain" in component) return component.retain;
-  if ("insert" in component) return component.insert.length;
+  if ('retain' in component) return component.retain;
+  if ('insert' in component) return component.insert.length;
   return component.delete;
 }
 
+/* -------------------------------------------------------------
+ * Normalization: Merge adjacent components of the same type
+ * ------------------------------------------------------------- */
+
+/**
+ * Normalize a text operation by merging consecutive components of the same type
+ * and removing zero-length or invalid segments.
+ */
 export function normalizeOperation(input: TextOperation): TextOperation {
   const normalized: TextOperation = [];
+
   for (const component of input) {
-    if ("retain" in component) {
-      if (component.retain <= 0) continue;
-    } else if ("delete" in component) {
-      if (component.delete <= 0) continue;
-    } else if ("insert" in component) {
-      if (component.insert.length === 0) continue;
-    }
+    if ('retain' in component && component.retain <= 0) continue;
+    if ('delete' in component && component.delete <= 0) continue;
+    if ('insert' in component && component.insert.length === 0) continue;
 
     const last = normalized[normalized.length - 1];
     if (!last) {
@@ -40,14 +62,11 @@ export function normalizeOperation(input: TextOperation): TextOperation {
 
     const lastType = componentType(last);
     const nextType = componentType(component);
+
     if (lastType === nextType) {
-      if (lastType === "retain") {
-        (last as { retain: number }).retain += (component as { retain: number }).retain;
-      } else if (lastType === "insert") {
-        (last as { insert: string }).insert += (component as { insert: string }).insert;
-      } else if (lastType === "delete") {
-        (last as { delete: number }).delete += (component as { delete: number }).delete;
-      }
+      if (lastType === 'retain') (last as { retain: number }).retain += (component as any).retain;
+      else if (lastType === 'insert') (last as { insert: string }).insert += (component as any).insert;
+      else if (lastType === 'delete') (last as { delete: number }).delete += (component as any).delete;
       continue;
     }
 
@@ -57,24 +76,30 @@ export function normalizeOperation(input: TextOperation): TextOperation {
   return normalized;
 }
 
+/* -------------------------------------------------------------
+ * Application: Apply an operation to a text string
+ * ------------------------------------------------------------- */
+
+/**
+ * Apply a normalized text operation to a string.
+ * Throws an error if a retain or delete extends beyond the content bounds.
+ */
 export function applyOperation(content: string, op: TextOperation): string {
   const normalized = normalizeOperation(op);
   let cursor = 0;
-  let result = "";
+  let result = '';
 
   for (const component of normalized) {
-    if ("retain" in component) {
-      if (cursor + component.retain > content.length) {
-        throw new Error("Retain extends beyond document bounds.");
-      }
+    if ('retain' in component) {
+      if (cursor + component.retain > content.length)
+        throw new Error('Retain extends beyond document bounds.');
       result += content.slice(cursor, cursor + component.retain);
       cursor += component.retain;
-    } else if ("insert" in component) {
+    } else if ('insert' in component) {
       result += component.insert;
-    } else if ("delete" in component) {
-      if (cursor + component.delete > content.length) {
-        throw new Error("Delete extends beyond document bounds.");
-      }
+    } else if ('delete' in component) {
+      if (cursor + component.delete > content.length)
+        throw new Error('Delete extends beyond document bounds.');
       cursor += component.delete;
     }
   }
@@ -82,6 +107,10 @@ export function applyOperation(content: string, op: TextOperation): string {
   result += content.slice(cursor);
   return result;
 }
+
+/* -------------------------------------------------------------
+ * Iterator: Utility for stepwise traversal of operations
+ * ------------------------------------------------------------- */
 
 class OperationIterator {
   private index = 0;
@@ -96,26 +125,16 @@ class OperationIterator {
   peakComponent(): TextComponent | null {
     const comp = this.op[this.index];
     if (!comp) return null;
-    if ("retain" in comp) {
-      return { retain: comp.retain - this.offset };
-    }
-    if ("insert" in comp) {
-      return {
-        insert: comp.insert.slice(this.offset),
-      };
-    }
+    if ('retain' in comp) return { retain: comp.retain - this.offset };
+    if ('insert' in comp) return { insert: comp.insert.slice(this.offset) };
     return { delete: comp.delete - this.offset };
   }
 
   peekLength(): number {
     const comp = this.op[this.index];
     if (!comp) return 0;
-    if ("retain" in comp) {
-      return comp.retain - this.offset;
-    }
-    if ("insert" in comp) {
-      return comp.insert.length - this.offset;
-    }
+    if ('retain' in comp) return comp.retain - this.offset;
+    if ('insert' in comp) return comp.insert.length - this.offset;
     return comp.delete - this.offset;
   }
 
@@ -123,6 +142,9 @@ class OperationIterator {
     return this.index < this.op.length;
   }
 
+  /**
+   * Consume and return the next component, or a chunk of it, up to a given length.
+   */
   next(length?: number): TextComponent | null {
     const comp = this.op[this.index];
     if (!comp) return null;
@@ -131,13 +153,10 @@ class OperationIterator {
     const consume = length ? Math.min(length, available) : available;
 
     let chunk: TextComponent;
-    if ("retain" in comp) {
-      chunk = { retain: consume };
-    } else if ("insert" in comp) {
+    if ('retain' in comp) chunk = { retain: consume };
+    else if ('insert' in comp)
       chunk = { insert: comp.insert.slice(this.offset, this.offset + consume) };
-    } else {
-      chunk = { delete: consume };
-    }
+    else chunk = { delete: consume };
 
     this.offset += consume;
     if (this.offset >= componentLength(comp)) {
@@ -149,10 +168,18 @@ class OperationIterator {
   }
 }
 
+/* -------------------------------------------------------------
+ * Transformation: Resolve concurrent edits (OT core)
+ * ------------------------------------------------------------- */
+
+/**
+ * Transform an operation `A` against another concurrent operation `B`.
+ * Ensures both can be applied in any order while preserving document consistency.
+ */
 export function transformOperation(
   operation: TextOperation,
   against: TextOperation,
-  bias: "left" | "right" = "right",
+  bias: 'left' | 'right' = 'right',
 ): TextOperation {
   const a = new OperationIterator(normalizeOperation(operation));
   const b = new OperationIterator(normalizeOperation(against));
@@ -165,24 +192,22 @@ export function transformOperation(
       result.push(component);
       return;
     }
+
     const prevType = componentType(prev);
     const nextType = componentType(component);
     if (prevType === nextType) {
-      if (prevType === "retain") {
-        (prev as { retain: number }).retain += (component as { retain: number }).retain;
-      } else if (prevType === "insert") {
-        (prev as { insert: string }).insert += (component as { insert: string }).insert;
-      } else if (prevType === "delete") {
-        (prev as { delete: number }).delete += (component as { delete: number }).delete;
-      }
+      if (prevType === 'retain') (prev as any).retain += (component as any).retain;
+      else if (prevType === 'insert') (prev as any).insert += (component as any).insert;
+      else if (prevType === 'delete') (prev as any).delete += (component as any).delete;
       return;
     }
+
     result.push(component);
   };
 
   while (a.hasNext()) {
     const typeA = a.peekType();
-    if (typeA === "insert") {
+    if (typeA === 'insert') {
       push(a.next());
       continue;
     }
@@ -194,42 +219,36 @@ export function transformOperation(
 
     const typeB = b.peekType();
 
-    if (typeB === "insert") {
+    if (typeB === 'insert') {
       const chunk = b.next();
-      if (bias === "left") {
-        push({ retain: componentLength(chunk!) });
-      } else {
-        push({ retain: componentLength(chunk!) });
-      }
+      push({ retain: componentLength(chunk!) }); // Always retain length of concurrent insert
       continue;
     }
 
     const len = Math.min(a.peekLength(), b.peekLength());
-    if (len <= 0) {
-      break;
-    }
+    if (len <= 0) break;
 
-    if (typeA === "retain" && typeB === "retain") {
+    if (typeA === 'retain' && typeB === 'retain') {
       push({ retain: len });
       a.next(len);
       b.next(len);
       continue;
     }
 
-    if (typeA === "retain" && typeB === "delete") {
+    if (typeA === 'retain' && typeB === 'delete') {
       b.next(len);
       a.next(len);
       continue;
     }
 
-    if (typeA === "delete" && typeB === "retain") {
+    if (typeA === 'delete' && typeB === 'retain') {
       push({ delete: len });
       a.next(len);
       b.next(len);
       continue;
     }
 
-    if (typeA === "delete" && typeB === "delete") {
+    if (typeA === 'delete' && typeB === 'delete') {
       a.next(len);
       b.next(len);
       continue;

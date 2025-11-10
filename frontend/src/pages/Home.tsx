@@ -1,7 +1,32 @@
+/**
+ * Home Page (Landing)
+ * --------------------
+ * The public-facing entry point of CodeTogether.
+ *
+ * Features:
+ * - Hero section introducing the platform
+ * - Highlights of key functionalities (coding, collaboration, project growth)
+ * - Clear CTAs (Playground, Login, Register, Explore)
+ * - Automatic redirect to the Explore page if the user is already authenticated
+ *
+ * Behavior:
+ * - Checks authentication status via `getToken`
+ * - Encourages new visitors to try the instant playground or sign up
+ * - Uses responsive layout sections styled via `home-landing.css`
+ */
+
 import { Link, Navigate } from "react-router-dom";
 import { getToken } from "../utils/auth";
 import "../styles/home-landing.css";
 
+/**
+ * highlights
+ * ------------
+ * Key value propositions displayed in the grid section of the landing page.
+ * Each item includes:
+ * - title: short descriptive headline
+ * - body: supporting explanation for each feature
+ */
 const highlights = [
   {
     title: "Start coding instantly",
@@ -17,14 +42,30 @@ const highlights = [
   },
 ];
 
+/**
+ * Home Component
+ * ----------------
+ * Serves as the top-level landing page for unauthenticated users.
+ *
+ * Redirects:
+ * - If the user already has a valid JWT (via `getToken()`), navigates directly to `/explore`.
+ */
 export default function Home() {
   if (getToken()) {
     return <Navigate to="/explore" replace />;
   }
 
+  /**
+   * JSX Return
+   * ------------
+   * Renders the main sections:
+   * - Hero: tagline, subtext, and primary call-to-action
+   * - Highlights: platform feature cards
+   * - Final CTA: sign up or browse public projects
+   */
   return (
     <div className="landing-home">
-      {/* 👇 Hero Section */}
+      {/* ------------------ Hero Section ------------------ */}
       <section className="landing-hero">
         <div>
           <p className="landing-eyebrow">Welcome to CodeTogether</p>
@@ -45,7 +86,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 👇 Hero Card */}
+        {/* ------------------ Hero Card ------------------ */}
         <div className="landing-hero-card">
           <p>What you can do here</p>
           <ul>
@@ -56,7 +97,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* 👇 Highlights Section */}
+      {/* ------------------ Highlights Section ------------------ */}
       <section className="landing-grid">
         {highlights.map((item) => (
           <article key={item.title} className="landing-card">
@@ -66,7 +107,7 @@ export default function Home() {
         ))}
       </section>
 
-      {/* 👇 Call-to-Action Section */}
+      {/* ------------------ Call-to-Action Section ------------------ */}
       <section className="landing-cta-section">
         <h2>Start coding with your team in seconds.</h2>
         <p>

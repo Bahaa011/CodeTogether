@@ -1,3 +1,21 @@
+/**
+ * Playground Page
+ * ----------------
+ * Provides an instant, standalone coding environment for users to experiment
+ * with supported languages without needing to create or join a project.
+ *
+ * Features:
+ * - Multi-language support (JavaScript, Python, C++, Java)
+ * - Live code editor with sample snippets
+ * - Integrated run and terminal view using the shared workspace logic
+ * - Quick navigation back to the main dashboard
+ *
+ * Components:
+ * - PlaygroundHeader: Displays title, description, and navigation button
+ * - PlaygroundWorkspace: Handles editor, language selector, and terminal panel
+ * - usePlaygroundWorkspace: Custom hook for runtime management and code execution
+ */
+
 import { useNavigate } from "react-router-dom";
 import PlaygroundHeader from "../components/PlaygroundHeader";
 import PlaygroundWorkspace from "../components/PlaygroundWorkspace";
@@ -7,6 +25,15 @@ import {
 } from "../hooks/usePlaygroundWorkspace";
 import "../styles/playground.css";
 
+/**
+ * LANGUAGES
+ * ----------
+ * Predefined list of supported languages for the playground, including:
+ * - Identifier (`id`)
+ * - User-friendly label
+ * - Default filename
+ * - Example snippet to display when switching languages
+ */
 const LANGUAGES: PlaygroundLanguage[] = [
   {
     id: "javascript",
@@ -47,7 +74,7 @@ print("Collaborators", ["Mira", "Lee", "Kai"])
 int main() {
   std::vector<int> prs = {12, 4, 6};
   for (size_t i = 0; i < prs.size(); ++i) {
-    std::cout << "Week " << i + 1 << ": " << prs[i] << " merged PRs\n";
+    std::cout << "Week " << i + 1 << ": " << prs[i] << " merged PRs\\n";
   }
   return 0;
 }
@@ -69,8 +96,20 @@ public class Main {
   },
 ];
 
+/**
+ * Playground Component
+ * ---------------------
+ * The main functional component rendering the playground interface.
+ *
+ * Behavior:
+ * - Initializes the playground workspace using `usePlaygroundWorkspace`
+ * - Displays editor, terminal, and language tabs
+ * - Provides navigation to return to the home screen
+ */
 export default function Playground() {
   const navigate = useNavigate();
+
+  // Custom workspace hook: handles language state, code updates, run execution, and terminal toggling
   const {
     activeLanguageId,
     editorFile,
@@ -82,6 +121,13 @@ export default function Playground() {
     toggleTerminal,
   } = usePlaygroundWorkspace(LANGUAGES);
 
+  /**
+   * JSX Return
+   * -----------
+   * Constructs the playground shell layout including:
+   * - Header section (title, subtitle, navigation)
+   * - Workspace section (editor, output terminal, language selection)
+   */
   return (
     <div className="playground-shell">
       <PlaygroundHeader

@@ -1,7 +1,33 @@
-// Sidebar.tsx
-import type { EditorFileState } from "../hooks/useProjectEditor";
-import { resolveAssetUrl } from "../utils/url";
+/**
+ * Sidebar Component
+ * ------------------
+ * Displays the project explorer and live collaborator list in the workspace.
+ *
+ * Responsibilities:
+ * - Show project files with options to open, refresh, create, or delete.
+ * - Reflect active file highlighting within the workspace.
+ * - Display real-time collaborator presence and avatars.
+ * - Handle UI states for loading, error, and empty conditions.
+ *
+ * Context:
+ * Used alongside FileTabs and CodeEditor in ProjectView to manage navigation.
+ */
 
+import type { EditorFileState } from "../../hooks/useProjectEditor";
+import { resolveAssetUrl } from "../../utils/url";
+
+/**
+ * SidebarCollaborator
+ * --------------------
+ * Represents a single active (or offline) collaborator in the workspace.
+ *
+ * Fields:
+ * - id: Unique collaborator identifier.
+ * - name: Display name of the user.
+ * - status: Current presence ("online" | "away" | "offline").
+ * - color: Optional color for avatar background.
+ * - avatarUrl: Optional image path for collaborator profile picture.
+ */
 export type SidebarCollaborator = {
   id: string | number;
   name: string;
@@ -10,6 +36,24 @@ export type SidebarCollaborator = {
   avatarUrl?: string | null;
 };
 
+/**
+ * SidebarProps
+ * --------------
+ * Props accepted by the Sidebar component.
+ *
+ * - files: Array of current project files (from editor state).
+ * - activeFileId: ID of currently selected file.
+ * - loading: Whether files are being fetched.
+ * - error: Error message if file retrieval fails.
+ * - onSelect: Called when a file is clicked.
+ * - onRefresh: Triggered when user refreshes the file list.
+ * - onCreateFile: Optional handler for file creation.
+ * - canCreateFiles: Permission toggle for file creation.
+ * - onDeleteFile: Optional handler for file deletion.
+ * - canDeleteFiles: Permission toggle for file deletion.
+ * - projectTitle: Optional project name displayed at top.
+ * - collaborators: Active collaborator list with presence indicators.
+ */
 type SidebarProps = {
   files: EditorFileState[];
   activeFileId: number | null;
@@ -25,6 +69,11 @@ type SidebarProps = {
   collaborators?: SidebarCollaborator[];
 };
 
+/**
+ * STATUS_CLASS
+ * -------------
+ * Maps collaborator status to CSS presence dot modifiers.
+ */
 const STATUS_CLASS: Record<
   NonNullable<SidebarCollaborator["status"]>,
   string
@@ -34,6 +83,12 @@ const STATUS_CLASS: Record<
   offline: "workspace-sidebar__presence-dot--offline",
 };
 
+/**
+ * Sidebar
+ * ---------
+ * Renders the file explorer and live collaborators list.
+ * Handles both file management and presence visibility logic.
+ */
 export default function Sidebar({
   files,
   activeFileId,
@@ -48,12 +103,14 @@ export default function Sidebar({
   projectTitle,
   collaborators = [],
 }: SidebarProps) {
+  /** Count collaborators who are not offline */
   const onlineCount = collaborators.filter(
     (collab) => collab.status !== "offline",
   ).length;
 
   return (
     <aside className="workspace-sidebar">
+      {/* ---------------- File Explorer Section ---------------- */}
       <section className="workspace-sidebar__section workspace-sidebar__section--explorer">
         <header className="workspace-sidebar__section-header">
           <div>
@@ -62,6 +119,8 @@ export default function Sidebar({
               {projectTitle || "Workspace"}
             </p>
           </div>
+
+          {/* File actions: create & refresh */}
           <div className="workspace-sidebar__actions">
             {onCreateFile && (
               <button
@@ -86,6 +145,7 @@ export default function Sidebar({
           </div>
         </header>
 
+        {/* ---------------- File List Tree ---------------- */}
         <div className="workspace-sidebar__tree">
           <div className="workspace-sidebar__folder">
             <span className="workspace-sidebar__folder-icon">▾</span>
@@ -93,22 +153,26 @@ export default function Sidebar({
           </div>
 
           <div className="workspace-sidebar__files">
+            {/* Loading state */}
             {loading && (
               <p className="workspace-sidebar__hint">Loading project files…</p>
             )}
 
+            {/* Error state */}
             {!loading && error && (
               <p className="workspace-sidebar__hint workspace-sidebar__hint--error">
                 {error}
               </p>
             )}
 
+            {/* Empty state */}
             {!loading && !error && files.length === 0 && (
               <p className="workspace-sidebar__hint">
                 This project has no files yet.
               </p>
             )}
 
+            {/* File list */}
             {!loading && !error && files.length > 0 && (
               <ul className="workspace-sidebar__file-list">
                 {files.map((file) => {
@@ -119,6 +183,7 @@ export default function Sidebar({
 
                   return (
                     <li key={file.id} className="workspace-sidebar__file-row">
+                      {/* File button (select) */}
                       <button
                         type="button"
                         onClick={() => onSelect(file.id)}
@@ -132,6 +197,8 @@ export default function Sidebar({
                           {file.filename}
                         </span>
                       </button>
+
+                      {/* Delete button (if allowed) */}
                       {onDeleteFile && canDeleteFiles && (
                         <button
                           type="button"
@@ -152,6 +219,7 @@ export default function Sidebar({
         </div>
       </section>
 
+      {/* ---------------- Collaborators Section ---------------- */}
       <section className="workspace-sidebar__section workspace-sidebar__section--collaborators">
         <header className="workspace-sidebar__section-header">
           <div>
@@ -164,6 +232,7 @@ export default function Sidebar({
           </div>
         </header>
 
+        {/* Collaborator list */}
         <ul className="workspace-sidebar__collaborators">
           {collaborators.length === 0 && (
             <li className="workspace-sidebar__hint">
@@ -182,6 +251,7 @@ export default function Sidebar({
 
             return (
               <li key={collaborator.id} className="workspace-sidebar__collab">
+                {/* Avatar */}
                 <span
                   className={avatarClassName}
                   style={
@@ -200,6 +270,8 @@ export default function Sidebar({
                     collaborator.name.charAt(0).toUpperCase()
                   )}
                 </span>
+
+                {/* Collaborator info */}
                 <div className="workspace-sidebar__collab-info">
                   <span className="workspace-sidebar__collab-name">
                     {collaborator.name}

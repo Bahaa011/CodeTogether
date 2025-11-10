@@ -1,3 +1,23 @@
+/**
+ * ProjectSettingsModal Component
+ * -------------------------------
+ * A full-featured modal dialog that allows users to manage all key aspects
+ * of a project’s configuration, including metadata, visibility, tags,
+ * collaborators, backups, and deletion.
+ *
+ * Responsibilities:
+ * - Display tabbed sections for:
+ *   1. Project details (title, visibility, description, tags)
+ *   2. Backups (version history per file)
+ *   3. Collaborators (invite/remove users)
+ * - Handle save operations, collaborator removals, and project deletion.
+ * - Integrate seamlessly with nested modals (ConfirmationDialog, BackupHistoryModal).
+ *
+ * Context:
+ * This modal is typically opened from the Project Workspace view (Editor),
+ * providing inline access to project management tools.
+ */
+
 import { useEffect, useMemo, useState } from "react";
 import Modal from "./Modal";
 import BackupHistoryModal from "./BackupHistoryModal";
@@ -8,6 +28,22 @@ import { useProjectSettingsModal } from "../../hooks/useProjectSettingsModal";
 import type { CollaboratorRecord } from "../../services/collaboratorService";
 import "../../styles/project-settings.css";
 
+/**
+ * ProjectSettingsModalProps
+ * --------------------------
+ * Props accepted by the ProjectSettingsModal component.
+ *
+ * - open: Whether the modal is currently visible.
+ * - project: The project object being edited.
+ * - canEdit: Whether the current user can modify project details.
+ * - activeFileId: ID of the file currently open in the editor (for backups).
+ * - canDeleteProject: Enables deletion section (if the user owns the project).
+ * - onClose: Called when modal is dismissed.
+ * - onProjectUpdated: Fired after saving project updates.
+ * - onProjectDeleted: Fired after successful deletion.
+ * - onRevertBackup: Handles file version reversion.
+ * - revertingVersionId: Currently reverting version, if any.
+ */
 type ProjectSettingsModalProps = {
   open: boolean;
   project: Project | null;
@@ -21,6 +57,13 @@ type ProjectSettingsModalProps = {
   revertingVersionId: number | null;
 };
 
+/**
+ * ProjectSettingsModal
+ * ---------------------
+ * Provides a tabbed interface for managing a project's configuration and members.
+ * Integrates hooks, nested modals, and service logic to handle updates, deletion,
+ * and collaborator access changes.
+ */
 export default function ProjectSettingsModal({
   open,
   project,
@@ -33,6 +76,15 @@ export default function ProjectSettingsModal({
   onRevertBackup,
   revertingVersionId,
 }: ProjectSettingsModalProps) {
+  /**
+   * Hook: useProjectSettingsModal
+   * ------------------------------
+   * Centralized state and logic handler for:
+   * - Title, description, visibility, and tags.
+   * - Collaborator fetching and mutation.
+   * - Save and delete project actions.
+   * - Status messages and tones.
+   */
   const {
     activeTab,
     setActiveTab,
@@ -64,11 +116,10 @@ export default function ProjectSettingsModal({
     onProjectUpdated,
   });
 
+  // Track currently pending collaborator removal for confirmation
   const [pendingRemoval, setPendingRemoval] = useState<CollaboratorRecord | null>(null);
   const collaboratorName = useMemo(() => {
-    if (!pendingRemoval) {
-      return "this collaborator";
-    }
+    if (!pendingRemoval) return "this collaborator";
     return (
       pendingRemoval.user?.username ??
       pendingRemoval.user?.email ??
@@ -76,8 +127,10 @@ export default function ProjectSettingsModal({
     );
   }, [pendingRemoval]);
 
+  // Track delete project confirmation modal
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // Reset delete dialog when modal closes
   useEffect(() => {
     if (!open) {
       setDeleteDialogOpen(false);
@@ -92,6 +145,7 @@ export default function ProjectSettingsModal({
       className="modal--wide"
     >
       <div className="project-settings">
+        {/* ---------------- Tabs Navigation ---------------- */}
         <div className="project-settings__tabs-row">
           <button
             type="button"
@@ -137,10 +191,13 @@ export default function ProjectSettingsModal({
           </button>
         </div>
 
+        {/* ---------------- Active Tab Content ---------------- */}
         <section className="project-settings__panel-area">
+          {/* ===== Tab: DETAILS ===== */}
           {activeTab === "details" && project ? (
             <form className="project-settings__form" onSubmit={handleSubmit}>
               <div className="project-settings__grid">
+                {/* ---- Basic Fields ---- */}
                 <div className="project-settings__section project-settings__section--compact">
                   <label className="project-settings__field">
                     <span>Title</span>
@@ -166,6 +223,7 @@ export default function ProjectSettingsModal({
                   </div>
                 </div>
 
+                {/* ---- Tags ---- */}
                 <div className="project-settings__section project-settings__section--compact">
                   <div className="project-settings__field project-settings__field--tags">
                     <TagSelect
@@ -178,6 +236,7 @@ export default function ProjectSettingsModal({
                 </div>
               </div>
 
+              {/* ---- Description ---- */}
               <div className="project-settings__section project-settings__section--full">
                 <label className="project-settings__field">
                   <span>Description</span>
@@ -190,6 +249,7 @@ export default function ProjectSettingsModal({
                 </label>
               </div>
 
+              {/* ---- Status Message ---- */}
               {statusMessage && (
                 <p
                   className={
@@ -202,6 +262,7 @@ export default function ProjectSettingsModal({
                 </p>
               )}
 
+              {/* ---- Save / Delete Actions ---- */}
               <div
                 className={
                   canDeleteProject
@@ -247,6 +308,7 @@ export default function ProjectSettingsModal({
             </p>
           )}
 
+          {/* ===== Tab: BACKUPS ===== */}
           {activeTab === "backups" && (
             <div className="project-settings__panel">
               <BackupHistoryModal
@@ -259,6 +321,7 @@ export default function ProjectSettingsModal({
             </div>
           )}
 
+          {/* ===== Tab: COLLABORATORS ===== */}
           {activeTab === "collaborators" && (
             <div className="project-settings__panel">
               <div className="project-settings__collab-header">
@@ -279,6 +342,7 @@ export default function ProjectSettingsModal({
                 </button>
               </div>
 
+              {/* ---- Collaborator States ---- */}
               {collaboratorsLoading ? (
                 <p className="project-settings__status">Loading collaborators…</p>
               ) : collaboratorsError ? (
@@ -324,6 +388,10 @@ export default function ProjectSettingsModal({
           )}
         </section>
       </div>
+
+      {/* ---------------- Nested Modals ---------------- */}
+
+      {/* Confirm collaborator removal */}
       <ConfirmationDialog
         open={Boolean(pendingRemoval)}
         mode="confirm"
@@ -339,6 +407,8 @@ export default function ProjectSettingsModal({
           setPendingRemoval(null);
         }}
       />
+
+      {/* Confirm project deletion */}
       {canDeleteProject && (
         <ConfirmationDialog
           open={deleteDialogOpen}
@@ -354,8 +424,8 @@ export default function ProjectSettingsModal({
               await handleDeleteProject();
               setDeleteDialogOpen(false);
               onProjectDeleted?.();
-            } catch (error) {
-              // errors surfaced via deleteProjectError
+            } catch {
+              // Error displayed via deleteProjectError
             }
           }}
         />
