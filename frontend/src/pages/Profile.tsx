@@ -346,17 +346,19 @@ export default function Profile() {
                     </div>
                   )}
                 </a>
-                <button
-                  type="button"
-                  className="profile-project-remove"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setPendingRemovalId(collab.id);
-                  }}
-                  title="Stop collaborating"
-                >
-                  ✕
-                </button>
+                {!viewingOther && (
+                  <button
+                    type="button"
+                    className="profile-project-remove"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setPendingRemovalId(collab.id);
+                    }}
+                    title="Stop collaborating"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             </li>
           );
