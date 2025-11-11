@@ -5,8 +5,6 @@ CodeTogether is a full‑stack TypeScript application that lets teams spin up li
 - **Frontend** – Vite + React 19 + TypeScript, Socket.IO client, Monaco editor, custom workspace UI and modals.
 - **Backend** – NestJS 11 + TypeORM + PostgreSQL, Socket.IO gateway for OT, JWT auth with optional MFA, mailing, project/file/version services, and Terminal + Editor websockets.
 
-> This README documents the full local setup so the repository is publishable on GitHub. Update credentials before making it public.
-
 ---
 
 ### ✨ Major Features
