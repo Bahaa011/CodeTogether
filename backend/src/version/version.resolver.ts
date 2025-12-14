@@ -1,3 +1,8 @@
+/**
+ * VersionResolver
+ * ---------------
+ * Exposes version history queries/mutations and maps entities to GraphQL models.
+ */
 import { NotFoundException } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { VersionService } from './version.service';
@@ -66,12 +71,14 @@ export class VersionResolver {
     };
   }
 
+  /** Fetch backups for a given file id. */
   @Query(() => [VersionModel])
   async versionsByFile(@Args('fileId', { type: () => Int }) fileId: number) {
     const versions = await this.versionService.getFileVersions(fileId);
     return versions.map((version) => this.mapVersion(version));
   }
 
+  /** Fetch a specific version by id. */
   @Query(() => VersionModel)
   async version(@Args('id', { type: () => Int }) id: number) {
     const found = await this.versionService.getVersionById(id);
@@ -79,6 +86,7 @@ export class VersionResolver {
     return this.mapVersion(found);
   }
 
+  /** Create a new version backup for a file. */
   @Mutation(() => VersionModel)
   async createVersion(@Args('input') input: CreateVersionInput) {
     const created = await this.versionService.createVersion(
@@ -93,6 +101,7 @@ export class VersionResolver {
     return this.mapVersion(withRelations);
   }
 
+  /** Revert a file to the specified version. */
   @Mutation(() => VersionFileModel)
   async revertVersion(@Args('id', { type: () => Int }) id: number) {
     const file = await this.versionService.revertVersion(id);

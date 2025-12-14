@@ -1,3 +1,6 @@
+/**
+ * Collaborator-related GraphQL fragments and operations.
+ */
 import { gql } from "@apollo/client";
 
 export const COLLABORATOR_USER_FIELDS = gql`

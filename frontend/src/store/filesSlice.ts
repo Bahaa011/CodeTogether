@@ -1,3 +1,6 @@
+/**
+ * Files slice keeps project file metadata, open tabs, draft content state, and save/delete flows.
+ */
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   fetchProjectFiles,
@@ -109,6 +112,9 @@ const initialState: FilesState = {
   byProjectId: {},
 };
 
+/**
+ * Loads all files for a project and opens the first file by default.
+ */
 export const loadProjectFiles = createAsyncThunk<
   { projectId: number; files: ProjectFile[] },
   number,
@@ -127,6 +133,9 @@ export const loadProjectFiles = createAsyncThunk<
   },
 );
 
+/**
+ * Creates a new project file with inferred file_type.
+ */
 export const createFileThunk = createAsyncThunk<
   { projectId: number; file: ProjectFile },
   {
@@ -155,6 +164,9 @@ export const createFileThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Persists draft content to the backend for a file.
+ */
 export const saveFileThunk = createAsyncThunk<
   ProjectFile,
   { fileId: number; content: string },
@@ -169,6 +181,9 @@ export const saveFileThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Deletes a file from a project and removes it locally.
+ */
 export const deleteFileThunk = createAsyncThunk<
   { projectId: number; fileId: number },
   { projectId: number; fileId: number },
@@ -187,12 +202,14 @@ const filesSlice = createSlice({
   name: "files",
   initialState,
   reducers: {
+    // Clears cached files for a project.
     clearFilesForProject(state, action: PayloadAction<number | undefined>) {
       const projectId = action.payload;
       if (typeof projectId === "number") {
         delete state.byProjectId[projectId];
       }
     },
+    // Adds file id to open tab list and sets it active.
     openFile(state, action: PayloadAction<{ projectId: number; fileId: number }>) {
       const { projectId, fileId } = action.payload;
       const record = ensureRecord(state, projectId);
@@ -201,6 +218,7 @@ const filesSlice = createSlice({
       }
       record.activeFileId = fileId;
     },
+    // Closes a tab and picks a new active file if needed.
     closeFile(state, action: PayloadAction<{ projectId: number; fileId: number }>) {
       const { projectId, fileId } = action.payload;
       const record = ensureRecord(state, projectId);
@@ -210,6 +228,7 @@ const filesSlice = createSlice({
           record.openFileIds.length > 0 ? record.openFileIds[0] : null;
       }
     },
+    // Sets the active file tab (and opens it if not already).
     setActiveFile(state, action: PayloadAction<{ projectId: number; fileId: number | null }>) {
       const { projectId, fileId } = action.payload;
       const record = ensureRecord(state, projectId);
@@ -218,6 +237,7 @@ const filesSlice = createSlice({
         record.openFileIds.push(fileId);
       }
     },
+    // Updates draft content for a file and marks dirty state.
     updateFileDraft(
       state,
       action: PayloadAction<{
@@ -237,6 +257,7 @@ const filesSlice = createSlice({
         saveError: null,
       };
     },
+    // Flags a file as currently saving.
     markFileSaving(
       state,
       action: PayloadAction<{ projectId: number; fileId: number; saving: boolean }>,
@@ -251,6 +272,7 @@ const filesSlice = createSlice({
         saveError: null,
       };
     },
+    // Marks file saved, syncing content/metadata and clearing dirty state.
     markFileSaved(
       state,
       action: PayloadAction<{
@@ -276,6 +298,7 @@ const filesSlice = createSlice({
         updated_at: metadata?.updated_at ?? file.updated_at,
       };
     },
+    // Records a save error for a file and clears saving flag.
     setFileError(
       state,
       action: PayloadAction<{ projectId: number; fileId: number; error: string }>,
@@ -290,6 +313,7 @@ const filesSlice = createSlice({
           saveError: error,
         };
       },
+    // Adds a fully constructed EditorFileState to a project.
     addFile(
       state,
       action: PayloadAction<{ projectId: number; file: EditorFileState }>,
@@ -302,6 +326,7 @@ const filesSlice = createSlice({
       }
       record.activeFileId = file.id;
     },
+    // Removes a file from cache and adjusts open/active tabs.
     removeFile(
       state,
       action: PayloadAction<{ projectId: number; fileId: number }>,
@@ -322,6 +347,7 @@ const filesSlice = createSlice({
       record.openFileIds = nextOpenIds;
       record.activeFileId = nextActiveId;
     },
+    // Syncs incoming content changes (e.g., collaboration) into draft/content.
     syncFileContent(
       state,
       action: PayloadAction<{

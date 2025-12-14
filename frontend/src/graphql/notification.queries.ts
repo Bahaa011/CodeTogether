@@ -1,3 +1,6 @@
+/**
+ * Notification GraphQL operations for fetching and updating read status.
+ */
 import { gql } from "@apollo/client";
 
 export const NOTIFICATION_FIELDS = gql`

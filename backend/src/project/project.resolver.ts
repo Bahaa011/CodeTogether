@@ -1,3 +1,8 @@
+/**
+ * ProjectResolver
+ * ---------------
+ * Serves project queries/mutations and maps entities to GraphQL models.
+ */
 import { NotFoundException } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ProjectService } from './project.service';
@@ -72,18 +77,21 @@ export class ProjectResolver {
     };
   }
 
+  /** List all projects (including non-public). */
   @Query(() => [ProjectModel])
   async projects() {
     const data = await this.projectService.getAllProjects();
     return data.map((project) => this.mapProject(project));
   }
 
+  /** List only public projects. */
   @Query(() => [ProjectModel])
   async publicProjects() {
     const data = await this.projectService.getPublicProjects();
     return data.map((project) => this.mapProject(project));
   }
 
+  /** Fetch a project by id. */
   @Query(() => ProjectModel)
   async project(@Args('id', { type: () => Int }) id: number) {
     const found = await this.projectService.getProjectById(id);
@@ -91,12 +99,14 @@ export class ProjectResolver {
     return this.mapProject(found);
   }
 
+  /** Fetch projects owned by a specific user. */
   @Query(() => [ProjectModel])
   async projectsByOwner(@Args('ownerId', { type: () => Int }) ownerId: number) {
     const data = await this.projectService.getProjectsByOwner(ownerId);
     return data.map((project) => this.mapProject(project));
   }
 
+  /** Count projects owned by a user. */
   @Query(() => Int)
   async projectCountByOwner(
     @Args('ownerId', { type: () => Int }) ownerId: number,
@@ -104,6 +114,7 @@ export class ProjectResolver {
     return this.projectService.countProjectsByOwner(ownerId);
   }
 
+  /** Create a new project. */
   @Mutation(() => ProjectModel)
   async createProject(@Args('input') input: CreateProjectInput) {
     const created = await this.projectService.createProject(input);
@@ -111,6 +122,7 @@ export class ProjectResolver {
     return this.mapProject(created);
   }
 
+  /** Update project fields and tags. */
   @Mutation(() => ProjectModel)
   async updateProject(
     @Args('id', { type: () => Int }) id: number,
@@ -121,6 +133,7 @@ export class ProjectResolver {
     return this.mapProject(updated);
   }
 
+  /** Delete a project by id. */
   @Mutation(() => Boolean)
   async deleteProject(@Args('id', { type: () => Int }) id: number) {
     const result = await this.projectService.deleteProject(id);

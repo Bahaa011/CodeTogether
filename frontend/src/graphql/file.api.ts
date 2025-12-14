@@ -1,3 +1,6 @@
+/**
+ * File GraphQL API helpers for listing, creating, updating, and deleting project files.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -59,6 +62,7 @@ const mapFile = (file?: GqlProjectFile | null): ProjectFile => {
   };
 };
 
+/** Fetches all files for a project. */
 export async function fetchProjectFiles(projectId: number): Promise<ProjectFile[]> {
   try {
     const numericId = Number(projectId);
@@ -75,6 +79,7 @@ export async function fetchProjectFiles(projectId: number): Promise<ProjectFile[
   }
 }
 
+/** Creates a new file in a project and returns the created record. */
 export async function createProjectFile(
   payload: CreateFilePayload,
 ): Promise<ProjectFile> {
@@ -97,6 +102,7 @@ export async function createProjectFile(
   }
 }
 
+/** Updates a file's metadata/content. */
 export async function updateProjectFile(
   fileId: number,
   payload: UpdateFilePayload,
@@ -115,6 +121,7 @@ export async function updateProjectFile(
   }
 }
 
+/** Deletes a project file. */
 export async function deleteProjectFile(fileId: number): Promise<boolean> {
   try {
     const numericId = Number(fileId);

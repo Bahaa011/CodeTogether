@@ -1,3 +1,8 @@
+/**
+ * FileResolver
+ * ------------
+ * Exposes project file queries/mutations and maps entities to GraphQL models.
+ */
 import { NotFoundException } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { FileService } from './file.service';
@@ -38,12 +43,14 @@ export class FileResolver {
     };
   }
 
+  /** List all files with uploader info. */
   @Query(() => [ProjectFileModel])
   async files() {
     const data = await this.fileService.getAllFiles();
     return data.map((file) => this.mapFile(file));
   }
 
+  /** Fetch a single file by id. */
   @Query(() => ProjectFileModel)
   async file(@Args('id', { type: () => Int }) id: number) {
     const found = await this.fileService.getFileById(id);
@@ -51,6 +58,7 @@ export class FileResolver {
     return this.mapFile(found);
   }
 
+  /** Fetch all files under a specific project. */
   @Query(() => [ProjectFileModel])
   async filesByProject(
     @Args('projectId', { type: () => Int }) projectId: number,
@@ -59,6 +67,7 @@ export class FileResolver {
     return data.map((file) => this.mapFile(file));
   }
 
+  /** Create a new project file. */
   @Mutation(() => ProjectFileModel)
   async createFile(@Args('input') input: CreateFileInput) {
     const created = await this.fileService.createFile(
@@ -71,6 +80,7 @@ export class FileResolver {
     return this.mapFile(created);
   }
 
+  /** Update an existing file's content/metadata. */
   @Mutation(() => ProjectFileModel)
   async updateFile(
     @Args('id', { type: () => Int }) id: number,
@@ -81,6 +91,7 @@ export class FileResolver {
     return this.mapFile(updated);
   }
 
+  /** Delete a file by id. */
   @Mutation(() => Boolean)
   async deleteFile(@Args('id', { type: () => Int }) id: number) {
     return this.fileService.deleteFile(id);

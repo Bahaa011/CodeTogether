@@ -1,5 +1,13 @@
+/**
+ * Version slice holds global status/errors for creating or reverting version backups.
+ */
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
-import { createVersionBackup, revertVersionBackup } from "../graphql/version.api";
+import {
+  createVersionBackup,
+  revertVersionBackup,
+  type FileRecord,
+  type VersionRecord,
+} from "../graphql/version.api";
 
 type AsyncStatus = "idle" | "loading" | "succeeded" | "failed";
 
@@ -17,8 +25,11 @@ const initialState: VersionState = {
   revertError: null,
 };
 
+/**
+ * Creates a new version backup for a file.
+ */
 export const createVersionBackupThunk = createAsyncThunk<
-  { message?: string | null },
+  VersionRecord,
   {
     fileId: number;
     content: string;
@@ -36,8 +47,11 @@ export const createVersionBackupThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Reverts file content to a specific backup version.
+ */
 export const revertVersionBackupThunk = createAsyncThunk<
-  { id?: number; content?: string | null },
+  FileRecord,
   { versionId: number },
   { rejectValue: string }
 >("version/revertBackup", async ({ versionId }, { rejectWithValue }) => {

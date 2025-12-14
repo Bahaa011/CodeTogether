@@ -1,3 +1,6 @@
+/**
+ * Session GraphQL API helpers for creating, listing, ending sessions and beacon fallback.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -55,6 +58,7 @@ const mapSession = (session?: GqlSession | null): ProjectSession => {
   };
 };
 
+/** Starts a new project session for a user. */
 export async function createSession(input: {
   userId: number;
   projectId: number;
@@ -72,6 +76,7 @@ export async function createSession(input: {
   }
 }
 
+/** Fetches active sessions for a project. */
 export async function fetchActiveSessions(
   projectId: number,
 ): Promise<ProjectSession[]> {
@@ -90,6 +95,7 @@ export async function fetchActiveSessions(
   }
 }
 
+/** Ends a session by id. */
 export async function endSession(sessionId: number): Promise<boolean> {
   try {
     const numericId = Number(sessionId);
@@ -103,6 +109,7 @@ export async function endSession(sessionId: number): Promise<boolean> {
   }
 }
 
+/** Fire-and-forget beacon to end a session when unloading. */
 export function endSessionBeacon(sessionId: number): boolean {
   if (
     typeof navigator === "undefined" ||
@@ -124,6 +131,7 @@ export function endSessionBeacon(sessionId: number): boolean {
   }
 }
 
+/** Counts long sessions for a user (duration metric). */
 export async function fetchLongSessionCount(userId: number): Promise<number> {
   try {
     const numericId = Number(userId);

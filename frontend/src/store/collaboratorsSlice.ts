@@ -1,3 +1,6 @@
+/**
+ * Collaborators slice tracks project collaborators plus invite/response flows.
+ */
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   fetchCollaboratorsByProject,
@@ -36,6 +39,9 @@ const initialState: CollaboratorsState = {
   byProjectId: {},
 };
 
+/**
+ * Loads collaborators for a given project id.
+ */
 export const loadCollaboratorsForProject = createAsyncThunk<
   CollaboratorRecord[],
   number,
@@ -55,6 +61,9 @@ export const loadCollaboratorsForProject = createAsyncThunk<
   },
 );
 
+/**
+ * Responds to an invite notification (accept/decline).
+ */
 export const respondToCollaboratorInviteThunk = createAsyncThunk<
   { message: string; accepted?: boolean },
   { notificationId: number; userId: number; accept: boolean },
@@ -72,6 +81,9 @@ export const respondToCollaboratorInviteThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Sends a collaborator invite by email/username for a project.
+ */
 export const inviteCollaboratorThunk = createAsyncThunk<
   { message: string },
   { inviterId: number; projectId: number; inviteeIdentifier: string },
@@ -90,6 +102,9 @@ export const inviteCollaboratorThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Removes a collaborator from a project and updates local list.
+ */
 export const removeCollaboratorThunk = createAsyncThunk<
   { projectId: number; collaboratorId: number },
   { projectId: number; collaboratorId: number },
@@ -110,6 +125,7 @@ const collaboratorsSlice = createSlice({
   name: "collaborators",
   initialState,
   reducers: {
+    // Locally removes a collaborator from a project's list.
     removeCollaboratorFromProject(
       state,
       action: PayloadAction<{ projectId: number; collaboratorId: number }>,
@@ -119,6 +135,7 @@ const collaboratorsSlice = createSlice({
       if (!record) return;
       record.list = record.list.filter((item) => item.id !== collaboratorId);
     },
+    // Clears collaborator cache for a project.
     clearCollaboratorsForProject(state, action: PayloadAction<number | undefined>) {
       const projectId = action.payload;
       if (typeof projectId === "number") {

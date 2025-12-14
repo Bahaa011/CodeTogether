@@ -1,3 +1,6 @@
+/**
+ * Sessions slice tracks active project sessions and lifecycle actions (start/end/beacon) per project.
+ */
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   createSession,
@@ -44,6 +47,9 @@ const initialState: SessionsState = {
   byProjectId: {},
 };
 
+/**
+ * Loads all currently active sessions for a project.
+ */
 export const loadActiveSessionsForProject = createAsyncThunk<
   { projectId: number; sessions: ProjectSession[] },
   number,
@@ -62,6 +68,9 @@ export const loadActiveSessionsForProject = createAsyncThunk<
   },
 );
 
+/**
+ * Starts a collaborative session for a user on a project.
+ */
 export const startProjectSession = createAsyncThunk<
   { projectId: number; session: ProjectSession },
   { projectId: number; userId: number },
@@ -80,6 +89,9 @@ export const startProjectSession = createAsyncThunk<
   },
 );
 
+/**
+ * Ends a session and removes it from the project's cache.
+ */
 export const finishProjectSession = createAsyncThunk<
   { projectId: number; sessionId: number },
   { projectId: number; sessionId: number },
@@ -98,6 +110,9 @@ export const finishProjectSession = createAsyncThunk<
   },
 );
 
+/**
+ * Sends a beacon on unload to mark a session ended; succeeds quickly or reports failure.
+ */
 export const sendSessionBeacon = createAsyncThunk<
   { sessionId: number; success: boolean },
   { sessionId: number },
@@ -118,6 +133,7 @@ const sessionsSlice = createSlice({
   name: "sessions",
   initialState,
   reducers: {
+    // Clears cached sessions for a project.
     clearSessionsForProject(state, action: PayloadAction<number | undefined>) {
       const projectId = action.payload;
       if (typeof projectId === "number") {

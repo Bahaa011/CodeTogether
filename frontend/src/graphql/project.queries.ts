@@ -1,3 +1,6 @@
+/**
+ * Project GraphQL fragments and operations for projects and tags.
+ */
 import { gql } from "@apollo/client";
 import { USER_FIELDS } from "./user.queries";
 

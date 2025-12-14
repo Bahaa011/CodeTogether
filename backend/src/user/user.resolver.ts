@@ -1,3 +1,8 @@
+/**
+ * UserResolver
+ * ------------
+ * Exposes user queries/mutations and handles avatar upload plumbing.
+ */
 import {
   BadRequestException,
   NotFoundException,
@@ -35,6 +40,7 @@ export class UserResolver {
     return name.replace(/[^a-zA-Z0-9.\-_]/g, '');
   }
 
+  /** Fetch all users (throws if none). */
   @Query(() => [User], { name: 'users' })
   async getUsers() {
     const users = await this.userService.getAllUsers();
@@ -45,6 +51,7 @@ export class UserResolver {
     return users;
   }
 
+  /** Fetch a single user by id. */
   @Query(() => User, { name: 'user' })
   async getUser(
     @Args('id', { type: () => Int })
@@ -58,6 +65,7 @@ export class UserResolver {
     return user;
   }
 
+  /** Register a new user account. */
   @UsePipes(new ValidationPipe())
   @Mutation(() => User)
   async registerUser(@Args('input') input: RegisterUserDto) {
@@ -68,6 +76,7 @@ export class UserResolver {
     );
   }
 
+  /** Update user profile fields such as avatar_url or bio. */
   @UsePipes(new ValidationPipe({ skipMissingProperties: true }))
   @Mutation(() => User)
   async updateUserProfile(
@@ -89,6 +98,7 @@ export class UserResolver {
     return updated;
   }
 
+  /** Delete a user by id. */
   @Mutation(() => Boolean)
   async deleteUser(@Args('id', { type: () => Int }) id: number) {
     const success = await this.userService.deleteUser(id);
@@ -98,6 +108,7 @@ export class UserResolver {
     return true;
   }
 
+  /** Upload and store a user's avatar image, returning the updated profile. */
   @Mutation(() => User)
   async uploadUserAvatar(
     @Args('userId', { type: () => Int }) userId: number,

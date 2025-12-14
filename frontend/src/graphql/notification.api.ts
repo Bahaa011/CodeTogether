@@ -1,3 +1,6 @@
+/**
+ * Notification GraphQL API helpers for loading and marking notifications read/unread.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -52,6 +55,7 @@ const mapNotification = (notification?: GqlNotification | null): Notification =>
   };
 };
 
+/** Loads all notifications for a given user. */
 export async function fetchNotificationsForUser(
   userId: number,
 ): Promise<Notification[]> {
@@ -72,6 +76,7 @@ export async function fetchNotificationsForUser(
   }
 }
 
+/** Updates notification read state and returns the updated record. */
 export async function markNotificationRead(
   notificationId: number,
   isRead: boolean,

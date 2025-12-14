@@ -1,3 +1,8 @@
+/**
+ * NotificationResolver
+ * --------------------
+ * Exposes notification queries/mutations and maps entities to GraphQL models.
+ */
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { NotificationService } from './notification.service';
@@ -40,6 +45,7 @@ export class NotificationResolver {
     };
   }
 
+  /** Fetch notifications for a user. */
   @Query(() => [NotificationModel])
   async notificationsByUser(
     @Args('userId', { type: () => Int }) userId: number,
@@ -48,6 +54,7 @@ export class NotificationResolver {
     return data.map((notification) => this.mapNotification(notification));
   }
 
+  /** Fetch a single notification by id. */
   @Query(() => NotificationModel)
   async notification(@Args('id', { type: () => Int }) id: number) {
     const found = await this.notificationService.getNotificationById(id);
@@ -55,6 +62,7 @@ export class NotificationResolver {
     return this.mapNotification(found);
   }
 
+  /** Create a notification for a recipient. */
   @Mutation(() => NotificationModel)
   async createNotification(@Args('input') input: CreateNotificationInput) {
     const created = await this.notificationService.createNotification(
@@ -66,6 +74,7 @@ export class NotificationResolver {
     return this.mapNotification(created);
   }
 
+  /** Update notification read/unread status. */
   @Mutation(() => NotificationModel)
   async updateNotificationStatus(
     @Args('id', { type: () => Int }) id: number,
@@ -82,6 +91,7 @@ export class NotificationResolver {
     return this.mapNotification(updated);
   }
 
+  /** Delete a notification by id. */
   @Mutation(() => Boolean)
   async deleteNotification(@Args('id', { type: () => Int }) id: number) {
     return this.notificationService.removeNotification(id);

@@ -1,3 +1,6 @@
+/**
+ * Session GraphQL operations for active sessions, creation, and ending.
+ */
 import { gql } from "@apollo/client";
 
 export const SESSION_USER_FIELDS = gql`

@@ -1,3 +1,8 @@
+/**
+ * AuthResolver
+ * ------------
+ * Handles authentication-related GraphQL mutations/queries and delegates to AuthService.
+ */
 import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { User } from '../user/user.entity';
@@ -19,22 +24,26 @@ import { CurrentUser } from './current-user.decorator';
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
+  /** Authenticate with email/password and issue session or MFA challenge. */
   @Mutation(() => LoginResponse)
   async login(@Args('input') input: LoginInput) {
     return this.authService.login(input.email, input.password);
   }
 
+  /** Verify MFA code and complete login. */
   @Mutation(() => AuthSession)
   async verifyMfa(@Args('input') input: VerifyMfaInput) {
     return this.authService.verifyMfaCode(input.token, input.code);
   }
 
+  /** Return the authenticated user's profile. */
   @UseGuards(GqlAuthGuard)
   @Query(() => User, { name: 'authProfile' })
   async authProfile(@CurrentUser() user: { userId: number }) {
     return this.authService.getProfile(user.userId);
   }
 
+  /** Enable/disable MFA for the authenticated user. */
   @UseGuards(GqlAuthGuard)
   @Mutation(() => User)
   async toggleMfa(
@@ -44,6 +53,7 @@ export class AuthResolver {
     return this.authService.toggleMfa(user.userId, input.enabled);
   }
 
+  /** Request a password reset email. */
   @Mutation(() => ActionMessage)
   async requestPasswordReset(@Args('input') input: RequestPasswordResetInput) {
     const result = await this.authService.requestPasswordReset(input.email);
@@ -53,6 +63,7 @@ export class AuthResolver {
     return result;
   }
 
+  /** Reset password using a token from email link. */
   @Mutation(() => ActionMessage)
   async resetPassword(@Args('input') input: ResetPasswordInput) {
     const result = await this.authService.resetPassword(

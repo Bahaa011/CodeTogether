@@ -1,3 +1,6 @@
+/**
+ * User slice handles authentication flows, user cache, and current user state/errors.
+ */
 import {
   createAsyncThunk,
   createSlice,
@@ -73,6 +76,9 @@ const upsertCollection = (state: UsersState, user: UserRecord) => {
   }
 };
 
+/**
+ * Fetches full user list for admin views and caches list/byId.
+ */
 export const fetchUsers = createAsyncThunk<
   UserRecord[],
   void,
@@ -91,6 +97,9 @@ export const fetchUsers = createAsyncThunk<
   }
 });
 
+/**
+ * Loads a single user by id for profile/detail pages.
+ */
 export const fetchUserById = createAsyncThunk<
   UserRecord,
   number,
@@ -114,6 +123,9 @@ export const fetchUserById = createAsyncThunk<
   }
 });
 
+/**
+ * Refreshes the authenticated user's profile and persists it locally.
+ */
 export const refreshCurrentUser = createAsyncThunk<
   StoredUser,
   void,
@@ -130,6 +142,9 @@ export const refreshCurrentUser = createAsyncThunk<
   }
 });
 
+/**
+ * Signs in a user with email/password, storing token and user on success.
+ */
 export const authenticateUser = createAsyncThunk<
   LoginResponse,
   { email: string; password: string },
@@ -150,6 +165,9 @@ export const authenticateUser = createAsyncThunk<
   }
 });
 
+/**
+ * Confirms an MFA code and refreshes auth token/user.
+ */
 export const verifyMfaCode = createAsyncThunk<
   LoginSuccessResponse,
   { token: string; code: string },
@@ -168,6 +186,9 @@ export const verifyMfaCode = createAsyncThunk<
   }
 });
 
+/**
+ * Sends password reset email for the given account.
+ */
 export const requestPasswordResetThunk = createAsyncThunk<
   string,
   { email: string },
@@ -184,6 +205,9 @@ export const requestPasswordResetThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Completes password reset using token and new password.
+ */
 export const resetPasswordThunk = createAsyncThunk<
   string,
   { token: string; password: string },
@@ -200,6 +224,9 @@ export const resetPasswordThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Registers a new user account with username/email/password.
+ */
 export const registerUserThunk = createAsyncThunk<
   StoredUser | null,
   { username: string; email: string; password: string },
@@ -214,6 +241,9 @@ export const registerUserThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Saves profile updates and refreshes stored user when applicable.
+ */
 export const saveUserProfile = createAsyncThunk<
   StoredUser,
   { userId: number; updates: { avatar_url?: string | null; bio?: string } },
@@ -230,6 +260,9 @@ export const saveUserProfile = createAsyncThunk<
   }
 });
 
+/**
+ * Uploads avatar media and returns updated user.
+ */
 export const uploadAvatar = createAsyncThunk<
   StoredUser,
   { userId: number; file: File },
@@ -246,6 +279,9 @@ export const uploadAvatar = createAsyncThunk<
   }
 });
 
+/**
+ * Enables/disables MFA for the current user and refreshes cache.
+ */
 export const toggleUserMfa = createAsyncThunk<
   StoredUser,
   { enabled: boolean },
@@ -266,9 +302,11 @@ const userSlice = createSlice({
   name: "users",
   initialState,
   reducers: {
+    // Inserts or updates a user in list/byId caches.
     upsertUser(state, action: PayloadAction<UserRecord>) {
       upsertCollection(state, action.payload);
     },
+    // Clears all user cache/state.
     clearUsers(state) {
       state.list = [];
       state.byId = {};
@@ -277,11 +315,13 @@ const userSlice = createSlice({
       state.profileStatus = {};
       state.profileError = {};
     },
+    // Removes current user pointer and resets status/error.
     clearCurrentUser(state) {
       state.currentUserId = null;
       state.currentUserStatus = "idle";
       state.currentUserError = null;
     },
+    // Sets current user pointer and caches the record.
     setCurrentUser(state, action: PayloadAction<UserRecord | null>) {
       const user = action.payload;
       if (!user) {

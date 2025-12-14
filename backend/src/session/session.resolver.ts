@@ -1,3 +1,8 @@
+/**
+ * SessionResolver
+ * ---------------
+ * Exposes session queries/mutations and maps session entities to GraphQL models.
+ */
 import { NotFoundException } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { SessionService } from './session.service';
@@ -47,6 +52,7 @@ export class SessionResolver {
     };
   }
 
+  /** Fetch active sessions for a project. */
   @Query(() => [ProjectSessionModel])
   async activeSessionsByProject(
     @Args('projectId', { type: () => Int }) projectId: number,
@@ -56,6 +62,7 @@ export class SessionResolver {
     return sessions.map((session) => this.mapSession(session));
   }
 
+  /** Count long-running sessions for a user. */
   @Query(() => Int)
   async longSessionCountByUser(
     @Args('userId', { type: () => Int }) userId: number,
@@ -63,6 +70,7 @@ export class SessionResolver {
     return this.sessionService.countLongSessions(userId);
   }
 
+  /** Start a new session for a project/user. */
   @Mutation(() => ProjectSessionModel)
   async startSession(@Args('input') input: CreateSessionInput) {
     const created = await this.sessionService.createSession(
@@ -74,6 +82,7 @@ export class SessionResolver {
     return this.mapSession(withRelations);
   }
 
+  /** End a session by id. */
   @Mutation(() => Boolean)
   async endSession(@Args('sessionId', { type: () => Int }) sessionId: number) {
     const result = await this.sessionService.endSession(sessionId);

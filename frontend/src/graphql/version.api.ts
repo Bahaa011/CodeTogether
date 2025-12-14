@@ -1,3 +1,6 @@
+/**
+ * Version GraphQL API helpers for creating backups, listing, fetching, and reverting versions.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -81,6 +84,7 @@ const mapFileRecord = (file?: GqlFileRecord | null): FileRecord => {
   };
 };
 
+/** Creates a version backup for a file. */
 export async function createVersionBackup(input: CreateVersionInput) {
   try {
     const numericUserId =
@@ -111,6 +115,7 @@ export async function createVersionBackup(input: CreateVersionInput) {
   }
 }
 
+/** Fetches all backups for a file id. */
 export async function fetchFileBackups(fileId: number) {
   try {
     const numericId = Number(fileId);
@@ -127,6 +132,7 @@ export async function fetchFileBackups(fileId: number) {
   }
 }
 
+/** Fetches a single backup by id. */
 export async function fetchBackupById(id: number) {
   try {
     const numericId = Number(id);
@@ -143,6 +149,7 @@ export async function fetchBackupById(id: number) {
   }
 }
 
+/** Reverts a file to the specified backup version. */
 export async function revertVersionBackup(versionId: number) {
   try {
     const numericId = Number(versionId);

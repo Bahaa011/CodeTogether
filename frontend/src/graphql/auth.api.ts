@@ -1,3 +1,6 @@
+/**
+ * Auth GraphQL API helpers for login, MFA, password reset, and profile fetch/update.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -23,6 +26,7 @@ export type MfaChallengeResponse = {
 
 export type LoginResponse = LoginSuccessResponse | MfaChallengeResponse;
 
+/** Authenticates with email/password and returns either a session or MFA challenge. */
 export async function loginUser(
   email: string,
   password: string,
@@ -66,6 +70,7 @@ export async function loginUser(
   }
 }
 
+/** Verifies an MFA code using the challenge token and returns a session. */
 export async function verifyMfaLogin(
   token: string,
   code: string,
@@ -88,6 +93,7 @@ export async function verifyMfaLogin(
   }
 }
 
+/** Requests a password reset email for the provided address. */
 export async function requestPasswordReset(email: string) {
   try {
     const { data } = await apolloClient.mutate<{
@@ -105,6 +111,7 @@ export async function requestPasswordReset(email: string) {
   }
 }
 
+/** Completes password reset using reset token and new password. */
 export async function resetPassword(token: string, newPassword: string) {
   try {
     const { data } = await apolloClient.mutate<{
@@ -119,6 +126,7 @@ export async function resetPassword(token: string, newPassword: string) {
   }
 }
 
+/** Fetches the authenticated user's profile. */
 export async function fetchProfile(): Promise<StoredUser> {
   try {
     const { data } = await apolloClient.query<{ authProfile?: StoredUser }>({
@@ -133,6 +141,7 @@ export async function fetchProfile(): Promise<StoredUser> {
   }
 }
 
+/** Enables or disables MFA and returns the updated profile. */
 export async function toggleMfa(enabled: boolean): Promise<StoredUser> {
   try {
     const { data } = await apolloClient.mutate<{ toggleMfa?: StoredUser }>({

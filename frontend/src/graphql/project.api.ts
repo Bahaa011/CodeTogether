@@ -1,3 +1,6 @@
+/**
+ * Project GraphQL API helpers for loading, tagging, creating, updating, and deleting projects.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -174,6 +177,7 @@ const mapProject = (project?: GqlProject | null): Project => {
   };
 };
 
+/** Fetches all available project tags. */
 export async function fetchProjectTags(): Promise<ProjectTag[]> {
   try {
     const { data } = await apolloClient.query<{ projectTags?: GqlProjectTag[] }>(
@@ -190,6 +194,7 @@ export async function fetchProjectTags(): Promise<ProjectTag[]> {
   }
 }
 
+/** Fetches tags associated with a project. */
 export async function fetchProjectTagsByProject(
   projectId: number,
 ): Promise<ProjectTag[]> {
@@ -209,6 +214,7 @@ export async function fetchProjectTagsByProject(
   }
 }
 
+/** Creates a new tag for a project. */
 export async function createProjectTag(input: {
   tag: string;
   projectId: number;
@@ -235,6 +241,7 @@ export async function createProjectTag(input: {
   }
 }
 
+/** Updates a project's tag value. */
 export async function updateProjectTag(id: number, tag: string): Promise<ProjectTag> {
   try {
     const { data } = await apolloClient.mutate<{ updateProjectTag?: GqlProjectTag }>(
@@ -253,6 +260,7 @@ export async function updateProjectTag(id: number, tag: string): Promise<Project
   }
 }
 
+/** Deletes a tag by id. */
 export async function deleteProjectTag(id: number): Promise<boolean> {
   try {
     const { data } = await apolloClient.mutate<{ deleteProjectTag?: boolean }>(
@@ -267,6 +275,7 @@ export async function deleteProjectTag(id: number): Promise<boolean> {
   }
 }
 
+/** Fetches public projects for discovery. */
 export async function fetchProjects(): Promise<Project[]> {
   try {
     const { data } = await apolloClient.query<{
@@ -281,6 +290,7 @@ export async function fetchProjects(): Promise<Project[]> {
   }
 }
 
+/** Fetches projects owned by a user. */
 export async function fetchProjectsByOwner(ownerId: number): Promise<Project[]> {
   try {
     const numericId = Number(ownerId);
@@ -297,6 +307,7 @@ export async function fetchProjectsByOwner(ownerId: number): Promise<Project[]> 
   }
 }
 
+/** Fetches a project by id. */
 export async function fetchProjectById(projectId: number): Promise<Project> {
   try {
     const numericId = Number(projectId);
@@ -315,6 +326,7 @@ export async function fetchProjectById(projectId: number): Promise<Project> {
   }
 }
 
+/** Returns the total number of projects for an owner. */
 export async function fetchProjectCount(ownerId: number): Promise<number> {
   try {
     const numericId = Number(ownerId);
@@ -331,6 +343,7 @@ export async function fetchProjectCount(ownerId: number): Promise<number> {
   }
 }
 
+/** Creates a new project owned by a user. */
 export async function createProject(payload: CreateProjectPayload): Promise<Project> {
   try {
     const numericOwnerId = Number(payload.owner_id);
@@ -351,6 +364,7 @@ export async function createProject(payload: CreateProjectPayload): Promise<Proj
   }
 }
 
+/** Updates project metadata and tags. */
 export async function updateProject(
   projectId: number,
   payload: UpdateProjectPayload,
@@ -369,6 +383,7 @@ export async function updateProject(
   }
 }
 
+/** Deletes a project. */
 export async function deleteProject(projectId: number): Promise<boolean> {
   try {
     const numericId = Number(projectId);

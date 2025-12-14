@@ -1,3 +1,6 @@
+/**
+ * Version GraphQL operations for backups and version retrieval.
+ */
 import { gql } from "@apollo/client";
 
 export const VERSION_USER_FIELDS = gql`

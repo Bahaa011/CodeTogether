@@ -1,3 +1,6 @@
+/**
+ * Apollo client setup with auth header injection and upload-capable HTTP link.
+ */
 import {
   ApolloClient,
   InMemoryCache,

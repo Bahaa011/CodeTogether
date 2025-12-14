@@ -1,3 +1,6 @@
+/**
+ * Backups slice tracks version history per file and the load status/errors for backups.
+ */
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { fetchFileBackups, type VersionRecord } from "../graphql/version.api";
 
@@ -30,6 +33,9 @@ const initialState: BackupsState = {
   byFileId: {},
 };
 
+/**
+ * Loads version backups for a given file id.
+ */
 export const loadBackupsForFile = createAsyncThunk<
   { fileId: number; backups: VersionRecord[] },
   number,
@@ -52,6 +58,7 @@ const backupsSlice = createSlice({
   name: "backups",
   initialState,
   reducers: {
+    // Clears cached backups for a specific file.
     clearBackupsForFile(state, action: PayloadAction<number | undefined>) {
       const fileId = action.payload;
       if (typeof fileId === "number") {

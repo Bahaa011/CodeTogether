@@ -1,3 +1,6 @@
+/**
+ * User GraphQL API helpers for querying users and updating profiles/avatars.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -11,6 +14,7 @@ import { normalizeStoredUser, type StoredUser } from "../utils/auth";
 
 export type UserProfile = StoredUser;
 
+/** Fetches all users (admin listing). */
 export async function fetchUsers(): Promise<UserProfile[]> {
   try {
     const response = await apolloClient.query<{ users: UserProfile[] }>({
@@ -24,6 +28,7 @@ export async function fetchUsers(): Promise<UserProfile[]> {
   }
 }
 
+/** Fetches a single user by id. */
 export async function fetchUserById(
   userId: number,
 ): Promise<UserProfile | null> {
@@ -40,6 +45,7 @@ export async function fetchUserById(
   }
 }
 
+/** Registers a new user account. */
 export async function registerUser(
   username: string,
   email: string,
@@ -59,6 +65,7 @@ export async function registerUser(
   }
 }
 
+/** Updates profile fields like avatar_url or bio. */
 export async function updateUserProfile(
   userId: number,
   updates: { avatar_url?: string | null; bio?: string },
@@ -79,6 +86,7 @@ export async function updateUserProfile(
   }
 }
 
+/** Uploads an avatar image for a user. */
 export async function uploadUserAvatar(userId: number, file: File) {
   try {
     const { data } = await apolloClient.mutate<{

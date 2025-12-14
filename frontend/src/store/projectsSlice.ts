@@ -1,3 +1,6 @@
+/**
+ * Projects slice manages public project listings plus per-project detail CRUD and status.
+ */
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   fetchProjectById,
@@ -34,6 +37,9 @@ const ensureDetail = (
   return state.details[projectId];
 };
 
+/**
+ * Loads all public projects for discovery/list pages.
+ */
 export const loadPublicProjects = createAsyncThunk<
   Project[],
   void,
@@ -52,6 +58,9 @@ export const loadPublicProjects = createAsyncThunk<
   },
 );
 
+/**
+ * Loads detail for a specific project id.
+ */
 export const loadProjectDetail = createAsyncThunk<
   { projectId: number; project: Project },
   number,
@@ -66,6 +75,9 @@ export const loadProjectDetail = createAsyncThunk<
   }
 });
 
+/**
+ * Creates a new project owned by a user.
+ */
 export const createProject = createAsyncThunk<
   Project,
   {
@@ -93,6 +105,9 @@ type UpdateProjectInput = {
   tags?: string[];
 };
 
+/**
+ * Updates an existing project's fields.
+ */
 export const updateProjectThunk = createAsyncThunk<
   Project,
   { projectId: number; input: UpdateProjectInput },
@@ -108,6 +123,9 @@ export const updateProjectThunk = createAsyncThunk<
   }
 });
 
+/**
+ * Deletes a project and prunes it from cached lists/details.
+ */
 export const deleteProjectThunk = createAsyncThunk<
   number,
   { projectId: number },
@@ -128,6 +146,7 @@ const projectsSlice = createSlice({
   name: "projects",
   initialState,
   reducers: {
+    // Seeds or clears a project's detail entry manually.
     setProjectDetail(
       state,
       action: PayloadAction<{ projectId: number; project: Project | null }>,

@@ -1,3 +1,6 @@
+/**
+ * Collaborator GraphQL API helpers for loading collaborators, counts, and invite flows.
+ */
 import { apolloClient } from "./client";
 import { formatGraphQLError } from "./error";
 import {
@@ -117,6 +120,7 @@ const mapUserCollaboration = (collab: GqlCollaborator): UserCollaboration => ({
   project: mapProject(collab.project),
 });
 
+/** Fetches collaborators for a given project. */
 export async function fetchCollaboratorsByProject(projectId: number) {
   try {
     const numericId = Number(projectId);
@@ -133,6 +137,7 @@ export async function fetchCollaboratorsByProject(projectId: number) {
   }
 }
 
+/** Fetches collaborations for a given user (projects they're in). */
 export async function fetchCollaborationsByUser(userId: number) {
   try {
     const numericId = Number(userId);
@@ -149,6 +154,7 @@ export async function fetchCollaborationsByUser(userId: number) {
   }
 }
 
+/** Returns how many collaborations a user participates in. */
 export async function fetchCollaborationCount(userId: number) {
   try {
     const numericId = Number(userId);
@@ -165,6 +171,7 @@ export async function fetchCollaborationCount(userId: number) {
   }
 }
 
+/** Sends an invite to collaborate on a project. */
 export async function inviteCollaborator(payload: InviteCollaboratorPayload) {
   try {
     const variables = {
@@ -188,6 +195,7 @@ export async function inviteCollaborator(payload: InviteCollaboratorPayload) {
   }
 }
 
+/** Accepts or declines a collaborator invite tied to a notification. */
 export async function respondToCollaboratorInvite(
   notificationId: number,
   payload: RespondCollaboratorInvitePayload,
@@ -214,6 +222,7 @@ export async function respondToCollaboratorInvite(
   }
 }
 
+/** Removes a collaborator from a project. */
 export async function removeCollaborator(collaboratorId: number) {
   try {
     const numericId = Number(collaboratorId);

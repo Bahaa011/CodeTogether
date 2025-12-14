@@ -1,3 +1,8 @@
+/**
+ * CollaboratorResolver
+ * --------------------
+ * Handles collaborator queries/mutations and maps entities to GraphQL models.
+ */
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CollaboratorService } from './collaborator.service';
 import { Collaborator } from './collaborator.entity';
@@ -66,12 +71,14 @@ export class CollaboratorResolver {
     };
   }
 
+  /** List all collaborators across projects. */
   @Query(() => [CollaboratorModel])
   async collaborators() {
     const collabs = await this.collaboratorService.getAllCollaborators();
     return collabs.map((collab) => this.mapCollaborator(collab));
   }
 
+  /** List collaborators for a specific project. */
   @Query(() => [CollaboratorModel])
   async collaboratorsByProject(
     @Args('projectId', { type: () => Int }) projectId: number,
@@ -81,6 +88,7 @@ export class CollaboratorResolver {
     return collabs.map((collab) => this.mapCollaborator(collab));
   }
 
+  /** List collaborations a user participates in. */
   @Query(() => [CollaboratorModel])
   async collaboratorsByUser(
     @Args('userId', { type: () => Int }) userId: number,
@@ -90,6 +98,7 @@ export class CollaboratorResolver {
     return collabs.map((collab) => this.mapCollaborator(collab));
   }
 
+  /** Count collaborations for a user. */
   @Query(() => Int)
   async collaborationCountByUser(
     @Args('userId', { type: () => Int }) userId: number,
@@ -97,6 +106,7 @@ export class CollaboratorResolver {
     return this.collaboratorService.countCollaborationsByUser(userId);
   }
 
+  /** Add a collaborator to a project. */
   @Mutation(() => CollaboratorModel)
   async addCollaborator(@Args('input') input: CreateCollaboratorInput) {
     const collab = await this.collaboratorService.addCollaborator(
@@ -107,6 +117,7 @@ export class CollaboratorResolver {
     return this.mapCollaborator(collab);
   }
 
+  /** Update a collaborator's role. */
   @Mutation(() => CollaboratorModel)
   async updateCollaboratorRole(
     @Args('id', { type: () => Int }) id: number,
@@ -119,11 +130,13 @@ export class CollaboratorResolver {
     return this.mapCollaborator(collab);
   }
 
+  /** Remove a collaborator from a project. */
   @Mutation(() => Boolean)
   async removeCollaborator(@Args('id', { type: () => Int }) id: number) {
     return this.collaboratorService.removeCollaborator(id);
   }
 
+  /** Send a collaborator invite. */
   @Mutation(() => CollaboratorActionResponse)
   async inviteCollaborator(@Args('input') input: InviteCollaboratorInput) {
     return this.collaboratorService.inviteCollaborator(
@@ -133,6 +146,7 @@ export class CollaboratorResolver {
     );
   }
 
+  /** Accept or decline a collaborator invite. */
   @Mutation(() => CollaboratorActionResponse)
   async respondToCollaboratorInvite(
     @Args('notificationId', { type: () => Int }) notificationId: number,

@@ -1,3 +1,6 @@
+/**
+ * Theme slice stores the current light/dark preference with helpers to toggle and persist it.
+ */
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from ".";
 
@@ -31,9 +34,11 @@ const themeSlice = createSlice({
   name: "theme",
   initialState,
   reducers: {
+    // Sets a specific theme value.
     setTheme(state, action: PayloadAction<Theme>) {
       state.value = action.payload;
     },
+    // Toggles between light and dark.
     toggleTheme(state) {
       state.value = state.value === "dark" ? "light" : "dark";
     },

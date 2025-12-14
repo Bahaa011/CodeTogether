@@ -1,3 +1,8 @@
+/**
+ * ProjectTagResolver
+ * ------------------
+ * Handles tag queries/mutations and maps tags to GraphQL models.
+ */
 import { NotFoundException } from '@nestjs/common';
 import { Args, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { ProjectTagService } from './project-tag.service';
@@ -20,12 +25,14 @@ export class ProjectTagResolver {
     };
   }
 
+  /** List all project tags. */
   @Query(() => [ProjectTagModel])
   async projectTags() {
     const tags = await this.projectTagService.findAll();
     return tags.map((tag) => this.mapTag(tag));
   }
 
+  /** List tags for a specific project. */
   @Query(() => [ProjectTagModel])
   async projectTagsByProject(
     @Args('projectId', { type: () => Int }) projectId: number,
@@ -34,6 +41,7 @@ export class ProjectTagResolver {
     return tags.map((tag) => this.mapTag(tag, projectId));
   }
 
+  /** Create a new project tag. */
   @Mutation(() => ProjectTagModel)
   async createProjectTag(@Args('input') input: CreateProjectTagInput) {
     const created = await this.projectTagService.create(
@@ -43,6 +51,7 @@ export class ProjectTagResolver {
     return this.mapTag(created, input.projectId);
   }
 
+  /** Update an existing project tag. */
   @Mutation(() => ProjectTagModel)
   async updateProjectTag(
     @Args('id', { type: () => Int }) id: number,
@@ -53,6 +62,7 @@ export class ProjectTagResolver {
     return this.mapTag(updated);
   }
 
+  /** Delete a project tag by id. */
   @Mutation(() => Boolean)
   async deleteProjectTag(@Args('id', { type: () => Int }) id: number) {
     return this.projectTagService.remove(id);

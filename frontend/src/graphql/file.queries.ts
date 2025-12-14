@@ -1,3 +1,6 @@
+/**
+ * File-related GraphQL fragments and operations.
+ */
 import { gql } from "@apollo/client";
 
 export const FILE_UPLOADER_FIELDS = gql`

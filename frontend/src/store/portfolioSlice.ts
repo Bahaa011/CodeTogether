@@ -1,3 +1,6 @@
+/**
+ * Portfolio slice aggregates per-user portfolio stats, owned projects, and collaborations.
+ */
 import { createAsyncThunk, createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   fetchProjectCount,
@@ -63,6 +66,9 @@ type FetchUserPortfolioArgs = {
   errorMessage?: string;
 };
 
+/**
+ * Loads portfolio stats, owned projects, and collaborations for a user.
+ */
 export const fetchUserPortfolio = createAsyncThunk<
   {
     userId: number;
@@ -107,12 +113,14 @@ const portfolioSlice = createSlice({
   name: "portfolio",
   initialState,
   reducers: {
+    // Clears cached portfolio for a single user.
     clearPortfolioForUser(state, action: PayloadAction<number | undefined>) {
       const userId = action.payload;
       if (typeof userId === "number") {
         delete state.byUserId[userId];
       }
     },
+    // Clears all cached portfolio entries.
     clearAllPortfolios(state) {
       state.byUserId = {};
     },

@@ -1,3 +1,6 @@
+/**
+ * Notifications slice stores a user's notifications list and read/unread update status.
+ */
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import {
   fetchNotificationsForUser,
@@ -19,6 +22,9 @@ const initialState: NotificationsState = {
   error: null,
 };
 
+/**
+ * Loads all notifications for a user.
+ */
 export const loadNotificationsForUser = createAsyncThunk<
   Notification[],
   number,
@@ -38,6 +44,9 @@ export const loadNotificationsForUser = createAsyncThunk<
   },
 );
 
+/**
+ * Marks a notification read/unread and returns updated item.
+ */
 export const updateNotificationStatus = createAsyncThunk<
   Notification,
   { notificationId: number; isRead: boolean },
@@ -61,6 +70,7 @@ const notificationsSlice = createSlice({
   name: "notifications",
   initialState,
   reducers: {
+    // Resets notifications state to initial.
     clearNotifications(state) {
       state.list = [];
       state.status = "idle";

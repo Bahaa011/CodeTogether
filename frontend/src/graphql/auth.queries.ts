@@ -1,3 +1,6 @@
+/**
+ * Auth-related GraphQL documents for login, MFA, profile, and password reset.
+ */
 import { gql } from "@apollo/client";
 import { USER_FIELDS } from "./user.queries";
 

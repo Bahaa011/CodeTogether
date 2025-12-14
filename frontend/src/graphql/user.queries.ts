@@ -1,3 +1,6 @@
+/**
+ * User GraphQL fragments and operations for listing, fetching, and mutations.
+ */
 import { gql } from "@apollo/client";
 
 export const USER_FIELDS = gql`
