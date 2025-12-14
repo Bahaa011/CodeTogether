@@ -1,23 +1,76 @@
+import {
+  Field,
+  GraphQLISODateTime,
+  ID,
+  InputType,
+  Int,
+  ObjectType,
+} from '@nestjs/graphql';
 import { IsInt, Min } from 'class-validator';
 
-/**
- * DTO for starting a new user session.
- */
-export class CreateSessionDto {
-  @IsInt()
-  @Min(1)
-  user_id: number;
+@ObjectType()
+export class SessionUserInfo {
+  @Field(() => ID)
+  id: number;
 
-  @IsInt()
-  @Min(1)
-  project_id: number;
+  @Field(() => String, { nullable: true })
+  username?: string | null;
+
+  @Field(() => String, { nullable: true })
+  email?: string | null;
+
+  @Field(() => String, { nullable: true })
+  avatar_url?: string | null;
 }
 
-/**
- * DTO for ending an existing session.
- */
-export class EndSessionDto {
+@ObjectType()
+export class SessionProjectInfo {
+  @Field(() => ID)
+  id: number;
+
+  @Field(() => String, { nullable: true })
+  title?: string | null;
+
+  @Field(() => String, { nullable: true })
+  description?: string | null;
+}
+
+@ObjectType()
+export class ProjectSessionModel {
+  @Field(() => ID)
+  id: number;
+
+  @Field(() => String)
+  status: string;
+
+  @Field(() => GraphQLISODateTime)
+  started_at: Date;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  ended_at?: Date | null;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  last_activity?: Date | null;
+
+  @Field(() => String, { nullable: true })
+  session_token?: string | null;
+
+  @Field(() => SessionUserInfo, { nullable: true })
+  user?: SessionUserInfo | null;
+
+  @Field(() => SessionProjectInfo, { nullable: true })
+  project?: SessionProjectInfo | null;
+}
+
+@InputType()
+export class CreateSessionInput {
+  @Field(() => Int)
   @IsInt()
   @Min(1)
-  session_id: number;
+  userId: number;
+
+  @Field(() => Int)
+  @IsInt()
+  @Min(1)
+  projectId: number;
 }

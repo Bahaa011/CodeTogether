@@ -29,7 +29,7 @@ export class File {
   @Column()
   file_type: string; // File type or extension (e.g., .ts, .js, .py)
 
-  @Column('text')
+  @Column('text', { default: '' })
   content: string; // File content stored as text
 
   @CreateDateColumn()

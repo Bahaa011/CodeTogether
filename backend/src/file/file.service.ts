@@ -63,7 +63,7 @@ export class FileService {
   async getFilesByProject(projectId: number) {
     return await this.fileRepo.find({
       where: { project: { id: Number(projectId) } },
-      relations: ['uploader'],
+      relations: ['project', 'uploader'],
     });
   }
 

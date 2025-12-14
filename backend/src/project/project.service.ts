@@ -11,7 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project } from './project.entity';
 import { User } from '../user/user.entity';
-import { UpdateProjectDto } from './dto/project.dto';
+import { UpdateProjectInput } from './dto/project.dto';
 import { ProjectTagService } from '../project-tag/project-tag.service';
 
 @Injectable()
@@ -100,7 +100,7 @@ export class ProjectService {
    * Update a project and optionally update its tags.
    * Returns the updated project.
    */
-  async updateProject(id: number, data: UpdateProjectDto) {
+  async updateProject(id: number, data: UpdateProjectInput) {
     const { tags, ...projectFields } = data;
 
     if (Object.keys(projectFields).length > 0) {

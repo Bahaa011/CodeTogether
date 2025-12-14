@@ -108,6 +108,15 @@ export type StoredUser = {
 };
 
 /**
+ * Ensures APIs that return `ID` scalars (which may be strings) get normalized to a number.
+ */
+export const normalizeStoredUser = (user: StoredUser): StoredUser => {
+  const parsedId = Number(user.id);
+  const normalizedId = Number.isFinite(parsedId) ? parsedId : user.id;
+  return { ...user, id: normalizedId };
+};
+
+/**
  * Retrieves the stored user profile.
  * @returns Parsed StoredUser object, or null if not found or invalid.
  */
@@ -125,7 +134,7 @@ export const getStoredUser = (): StoredUser | null => {
       delete parsed.userId;
     }
 
-    return parsed;
+    return normalizeStoredUser(parsed);
   } catch {
     localStorage.removeItem(USER_KEY);
     return null;
@@ -139,7 +148,7 @@ export const getStoredUser = (): StoredUser | null => {
 export const setStoredUser = (user?: StoredUser | null): void => {
   if (typeof window === "undefined") return;
   if (user) {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    localStorage.setItem(USER_KEY, JSON.stringify(normalizeStoredUser(user)));
   } else {
     localStorage.removeItem(USER_KEY);
   }

@@ -18,27 +18,35 @@ import { Collaborator } from '../collaborator/collaborator.entity';
 import { Session } from '../session/session.entity';
 import { Version } from '../version/version.entity';
 import { Notification } from '../notification/notification.entity';
+import { Field, GraphQLISODateTime, ID, ObjectType } from '@nestjs/graphql';
 
+@ObjectType()
 @Entity('users')
 export class User {
+  @Field(() => ID)
   @PrimaryGeneratedColumn()
   id: number; // Primary key
 
+  @Field()
   @Column({ unique: true })
   username: string; // Unique display name
 
+  @Field()
   @Column({ unique: true })
   email: string; // Unique user email
 
   @Column()
   password_hash: string; // Hashed password
 
-  @Column({ nullable: true })
-  avatar_url: string; // Optional profile picture URL
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', nullable: true })
+  avatar_url: string | null; // Optional profile picture URL
 
-  @Column({ nullable: true })
-  bio: string; // Optional user bio
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  bio: string | null; // Optional user bio
 
+  @Field(() => GraphQLISODateTime)
   @CreateDateColumn()
   created_at: Date; // Auto-generated timestamp when user is created
 
@@ -50,6 +58,7 @@ export class User {
   reset_token_expiry: Date | null;
 
   // Multi-Factor Authentication fields
+  @Field()
   @Column({ default: false })
   mfa_enabled: boolean;
 

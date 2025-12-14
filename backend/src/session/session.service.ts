@@ -88,7 +88,7 @@ export class SessionService {
         status: 'active',
         ended_at: IsNull(),
       },
-      relations: ['user'],
+      relations: ['user', 'project'],
       order: { last_activity: 'DESC' },
     });
   }
@@ -143,7 +143,7 @@ export class SessionService {
       .andWhere('session.started_at IS NOT NULL')
       .andWhere('session.ended_at IS NOT NULL')
       .andWhere(
-        "EXTRACT(EPOCH FROM (session.ended_at - session.started_at)) >= :minSeconds",
+        'EXTRACT(EPOCH FROM (session.ended_at - session.started_at)) >= :minSeconds',
         { minSeconds },
       );
     return query.getCount();

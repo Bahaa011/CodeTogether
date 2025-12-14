@@ -12,47 +12,32 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchProfile } from "../services/authService";
-import {
-  fetchProjectCount,
-  fetchProjectsByOwner,
-  type Project,
-} from "../services/projectService";
-import {
-  fetchCollaborationCount,
-  fetchCollaborationsByUser,
-  type UserCollaboration,
-} from "../services/collaboratorService";
-import {
-  fetchUserById,
-  updateUserProfile,
-  uploadUserAvatar,
-  type UserProfile as PublicUserProfile,
-} from "../services/userService";
-import { fetchLongSessionCount } from "../services/sessionService";
+import { type Project } from "../graphql/project.api";
+import { type UserCollaboration } from "../graphql/collaborator.api";
 import {
   AUTH_TOKEN_EVENT,
-  getStoredUser,
   getToken,
   removeToken,
   setRole,
-  setStoredUser,
   type StoredUser,
 } from "../utils/auth";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  clearPortfolioForUser,
+  fetchUserPortfolio,
+  type ProfileStats as PortfolioStats,
+} from "../store/portfolioSlice";
+export type { ProfileStats } from "../store/portfolioSlice";
+import {
+  clearCurrentUser,
+  fetchUserById as fetchUserByIdThunk,
+  refreshCurrentUser,
+  saveUserProfile,
+  uploadAvatar,
+  type UserRecord,
+} from "../store/userSlice";
 
-/**
- * ProfileStats
- *
- * Represents the numerical statistics displayed on a user’s profile.
- * - projects: Number of owned projects.
- * - collaborations: Number of projects where the user collaborates.
- * - sessions: Number of long coding sessions by the user.
- */
-export type ProfileStats = {
-  projects: number;
-  collaborations: number;
-  sessions: number;
-};
+type PublicUserProfile = UserRecord;
 
 /**
  * ProfilePortfolioState
@@ -61,7 +46,7 @@ export type ProfileStats = {
  * including loading/error flags and project/collaboration lists.
  */
 type ProfilePortfolioState = {
-  stats: ProfileStats;
+  stats: PortfolioStats;
   statsLoading: boolean;
   statsError: string | null;
   projects: Project[];
@@ -91,7 +76,7 @@ type UseProfilePortfolioOptions = {
  *
  * Combines user account info, portfolio data, and profile mutation handlers.
  */
-type UseProfileDataResult = {
+export type UseProfileDataResult = {
   hasToken: boolean;
   user: StoredUser | null;
   loading: boolean;
@@ -129,112 +114,58 @@ function useProfilePortfolio({
   enabled,
   errorMessage = "Unable to load statistics.",
 }: UseProfilePortfolioOptions): ProfilePortfolioState {
-  const [stats, setStats] = useState<ProfileStats>({
-    projects: 0,
-    collaborations: 0,
-    sessions: 0,
-  });
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [statsError, setStatsError] = useState<string | null>(null);
-
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectsLoading, setProjectsLoading] = useState(false);
-  const [projectsError, setProjectsError] = useState<string | null>(null);
-
-  const [collaborations, setCollaborations] = useState<UserCollaboration[]>([]);
-  const [collaborationsLoading, setCollaborationsLoading] = useState(false);
-  const [collaborationsError, setCollaborationsError] = useState<string | null>(
-    null,
+  const dispatch = useAppDispatch();
+  const portfolioRecord = useAppSelector((state) =>
+    userId ? state.portfolio.byUserId[userId] : undefined,
   );
 
-  /**
-   * Effect: Fetch all portfolio data (counts, projects, collaborations)
-   * when the hook is enabled and a valid user ID is provided.
-   */
   useEffect(() => {
-    if (!enabled || !userId) {
-      // Reset all data when disabled
-      setStats({ projects: 0, collaborations: 0, sessions: 0 });
-      setStatsError(null);
-      setStatsLoading(false);
-
-      setProjects([]);
-      setProjectsError(null);
-      setProjectsLoading(false);
-
-      setCollaborations([]);
-      setCollaborationsError(null);
-      setCollaborationsLoading(false);
+    if (!enabled) {
+      if (userId) {
+        dispatch(clearPortfolioForUser(userId));
+      }
       return;
     }
 
-    let cancelled = false;
-    setStatsLoading(true);
-    setProjectsLoading(true);
-    setCollaborationsLoading(true);
-    setStatsError(null);
-    setProjectsError(null);
-    setCollaborationsError(null);
+    if (!userId) return;
 
-    const load = async () => {
-      try {
-        const [
-          projectsCount,
-          collaborationsCount,
-          longSessionCount,
-          ownedProjects,
-          userCollaborations,
-        ] = await Promise.all([
-          fetchProjectCount(userId),
-          fetchCollaborationCount(userId),
-          fetchLongSessionCount(userId),
-          fetchProjectsByOwner(userId),
-          fetchCollaborationsByUser(userId),
-        ]);
+    const status = portfolioRecord?.statsStatus ?? "idle";
+    if (status === "idle" || status === "failed") {
+      void dispatch(fetchUserPortfolio({ userId, errorMessage }));
+    }
+  }, [dispatch, enabled, errorMessage, userId, portfolioRecord?.statsStatus]);
 
-        if (cancelled) return;
-        setStats({
-          projects: projectsCount,
-          collaborations: collaborationsCount,
-          sessions: longSessionCount,
-        });
-        setProjects(ownedProjects);
-        setCollaborations(userCollaborations);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : errorMessage;
-        setStats({ projects: 0, collaborations: 0, sessions: 0 });
-        setStatsError(message);
-        setProjectsError(message);
-        setCollaborationsError(message);
-        setProjects([]);
-        setCollaborations([]);
-      } finally {
-        if (!cancelled) {
-          setStatsLoading(false);
-          setProjectsLoading(false);
-          setCollaborationsLoading(false);
-        }
-      }
-    };
+  const fallbackStats: PortfolioStats = {
+    projects: 0,
+    collaborations: 0,
+    sessions: 0,
+  };
 
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled, errorMessage, userId]);
+  const stats = portfolioRecord?.stats ?? fallbackStats;
+  const projects = portfolioRecord?.projects ?? [];
+  const collaborations = portfolioRecord?.collaborations ?? [];
+
+  const statsLoading = portfolioRecord?.statsStatus === "loading";
+  const projectsLoading = portfolioRecord?.projectsStatus === "loading";
+  const collaborationsLoading =
+    portfolioRecord?.collaborationsStatus === "loading";
+
+  const statsError = enabled ? portfolioRecord?.statsError ?? null : null;
+  const projectsError = enabled ? portfolioRecord?.projectsError ?? null : null;
+  const collaborationsError = enabled
+    ? portfolioRecord?.collaborationsError ?? null
+    : null;
 
   return {
-    stats,
-    statsLoading,
-    statsError,
-    projects,
-    projectsLoading,
-    projectsError,
-    collaborations,
-    collaborationsLoading,
-    collaborationsError,
+    stats: enabled ? stats : fallbackStats,
+    statsLoading: enabled ? statsLoading : false,
+    statsError: enabled ? statsError : null,
+    projects: enabled ? projects : [],
+    projectsLoading: enabled ? projectsLoading : false,
+    projectsError: enabled ? projectsError : null,
+    collaborations: enabled ? collaborations : [],
+    collaborationsLoading: enabled ? collaborationsLoading : false,
+    collaborationsError: enabled ? collaborationsError : null,
   };
 }
 
@@ -250,10 +181,24 @@ function useProfilePortfolio({
  * - Handle profile updates and avatar uploads.
  */
 export function useProfileData(): UseProfileDataResult {
+  const dispatch = useAppDispatch();
   const [hasToken, setHasToken] = useState(() => Boolean(getToken()));
-  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
-  const [loading, setLoading] = useState(() => hasToken && !user);
-  const [error, setError] = useState<string | null>(null);
+  const currentUserId = useAppSelector((state) => state.users.currentUserId);
+  const currentUser = useAppSelector((state) =>
+    currentUserId ? state.users.byId[currentUserId] ?? null : null,
+  );
+  const currentUserStatus = useAppSelector(
+    (state) => state.users.currentUserStatus,
+  );
+  const currentUserError = useAppSelector(
+    (state) => state.users.currentUserError,
+  );
+  const loading =
+    hasToken &&
+    (currentUserStatus === "loading" ||
+      (currentUserStatus === "idle" && !currentUser));
+  const error = hasToken ? currentUserError : null;
+  const user = (currentUser as StoredUser | null) ?? null;
 
   /**
    * Effect: Keep token state synchronized across tabs and events.
@@ -263,9 +208,8 @@ export function useProfileData(): UseProfileDataResult {
       const tokenPresent = Boolean(getToken());
       setHasToken(tokenPresent);
       if (!tokenPresent) {
-        setUser(null);
-        setStoredUser(null);
         setRole(null);
+        dispatch(clearCurrentUser());
       }
     };
 
@@ -275,7 +219,7 @@ export function useProfileData(): UseProfileDataResult {
       window.removeEventListener(AUTH_TOKEN_EVENT, syncTokenState);
       window.removeEventListener("storage", syncTokenState);
     };
-  }, []);
+  }, [dispatch]);
 
   /**
    * Effect: Fetch authenticated user's profile from API.
@@ -283,42 +227,21 @@ export function useProfileData(): UseProfileDataResult {
    */
   useEffect(() => {
     if (!hasToken) {
-      setUser(null);
-      setLoading(false);
-      setError(null);
+      dispatch(clearCurrentUser());
       return;
     }
+    if (currentUserStatus === "idle") {
+      void dispatch(refreshCurrentUser());
+    }
+  }, [currentUserStatus, dispatch, hasToken]);
 
-    let cancelled = false;
-    const cachedUser = getStoredUser();
-    if (!cachedUser) setLoading(true);
-
-    const loadProfile = async () => {
-      try {
-        const profile = await fetchProfile();
-        if (cancelled) return;
-        setUser(profile);
-        setStoredUser(profile);
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unable to load profile.";
-        setError(message);
-        removeToken();
-        setStoredUser(null);
-        setRole(null);
-        setHasToken(false);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [hasToken]);
+  useEffect(() => {
+    if (currentUserStatus !== "failed" || !hasToken) return;
+    removeToken();
+    setRole(null);
+    dispatch(clearCurrentUser());
+    setHasToken(false);
+  }, [currentUserStatus, dispatch, hasToken]);
 
   // Fetch portfolio statistics for authenticated user
   const portfolio = useProfilePortfolio({
@@ -329,11 +252,10 @@ export function useProfileData(): UseProfileDataResult {
   /** Logs out the user and clears local authentication state. */
   const handleLogout = useCallback(() => {
     removeToken();
-    setStoredUser(null);
     setRole(null);
-    setUser(null);
+    dispatch(clearCurrentUser());
     setHasToken(false);
-  }, []);
+  }, [dispatch]);
 
   /**
    * handleSaveProfile
@@ -343,12 +265,9 @@ export function useProfileData(): UseProfileDataResult {
   const handleSaveProfile = useCallback(
     async (updates: { bio?: string; avatar_url?: string | null }) => {
       if (!user?.id) throw new Error("Unable to update profile without a user ID.");
-      const updatedUser = await updateUserProfile(user.id, updates);
-      const mergedUser = { ...user, ...updatedUser };
-      setUser(mergedUser);
-      setStoredUser(mergedUser);
+      await dispatch(saveUserProfile({ userId: user.id, updates })).unwrap();
     },
-    [user],
+    [dispatch, user?.id],
   );
 
   /**
@@ -360,12 +279,12 @@ export function useProfileData(): UseProfileDataResult {
   const handleUploadAvatar = useCallback(
     async (file: File) => {
       if (!user?.id) throw new Error("Unable to upload avatar without a user ID.");
-      const updatedUser = await uploadUserAvatar(user.id, file);
-      setUser(updatedUser);
-      setStoredUser(updatedUser);
+      const updatedUser = await dispatch(
+        uploadAvatar({ userId: user.id, file }),
+      ).unwrap();
       return updatedUser.avatar_url ?? "";
     },
-    [user],
+    [dispatch, user?.id],
   );
 
   return {
@@ -394,52 +313,24 @@ export function useProfileData(): UseProfileDataResult {
 export function useUserProfileData(
   userId?: number | null,
 ): UsePublicProfileDataResult {
+  const dispatch = useAppDispatch();
   const isValidId = Number.isFinite(userId) && (userId ?? 0) > 0;
-  const [user, setUser] = useState<PublicUserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const user = useAppSelector((state) =>
+    userId ? state.users.byId[userId] ?? null : null,
+  );
+  const status = useAppSelector((state) =>
+    userId ? state.users.profileStatus[userId] ?? "idle" : "idle",
+  );
+  const profileError = useAppSelector((state) =>
+    userId ? state.users.profileError[userId] ?? null : null,
+  );
 
-  /**
-   * Effect: Load the target user's public profile.
-   */
   useEffect(() => {
-    if (!isValidId || !userId) {
-      setUser(null);
-      setError("We couldn't find that profile.");
-      setLoading(false);
-      return;
+    if (!isValidId || !userId) return;
+    if (status === "idle" || (!user && status !== "loading")) {
+      void dispatch(fetchUserByIdThunk(userId));
     }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const loadUser = async () => {
-      try {
-        const profile = await fetchUserById(userId);
-        if (cancelled) return;
-        if (!profile) {
-          setError("This user doesn't exist or was removed.");
-          setUser(null);
-          return;
-        }
-        setUser(profile);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unable to load profile.";
-        setError(message);
-        setUser(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    void loadUser();
-    return () => {
-      cancelled = true;
-    };
-  }, [isValidId, userId]);
+  }, [dispatch, isValidId, status, user, userId]);
 
   // Fetch public portfolio data for this user
   const portfolio = useProfilePortfolio({
@@ -449,9 +340,9 @@ export function useUserProfileData(
   });
 
   return {
-    user,
-    loading,
-    error,
+    user: isValidId ? user : null,
+    loading: isValidId ? status === "loading" : false,
+    error: isValidId ? profileError : "We couldn't find that profile.",
     ...portfolio,
   };
 }

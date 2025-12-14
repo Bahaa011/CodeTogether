@@ -1,7 +1,7 @@
 /**
  * @file app.module.ts
  * @description Root application module for the CodeTogether backend.
- * 
+ *
  * This file configures TypeORM, environment variables, and imports all feature modules
  * such as User, Project, File, Collaborator, Auth, and others.
  */
@@ -9,6 +9,10 @@
 import 'dotenv/config';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { GraphQLModule } from '@nestjs/graphql';
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { join } from 'path';
+import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 
 // ✅ Feature modules
 import { UserModule } from './user/user.module';
@@ -48,7 +52,7 @@ const shouldSynchronize =
 
 /**
  * Root application module.
- * 
+ *
  * Responsibilities:
  * - Establishes database connection via TypeORM.
  * - Registers all feature modules.
@@ -57,8 +61,22 @@ const shouldSynchronize =
 @Module({
   imports: [
     /**
+     * GraphQL Configuration
+     *
+     * Enables code-first schema generation and the Apollo driver.
+     */
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: join(process.cwd(), 'src', 'schema.gql'),
+      sortSchema: true,
+      playground: true,
+      context: ({ req }) => ({ req }),
+      resolvers: { Upload: GraphQLUpload },
+    }),
+
+    /**
      * TypeORM Database Configuration.
-     * 
+     *
      * Connects to PostgreSQL using environment variables.
      * Automatically loads all entity classes.
      */

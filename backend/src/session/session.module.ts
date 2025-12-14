@@ -9,12 +9,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Session } from './session.entity';
 import { SessionService } from './session.service';
-import { SessionController } from './session.controller';
+import { SessionResolver } from './session.resolver';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Session])], // Registers Session entity
-  controllers: [SessionController],               // Exposes REST endpoints for session management
-  providers: [SessionService],                    // Business logic for sessions
-  exports: [SessionService],                      // Makes service reusable by other modules
+  providers: [SessionService, SessionResolver], // Business logic + GraphQL resolver
+  exports: [SessionService], // Makes service reusable by other modules
 })
 export class SessionModule {}

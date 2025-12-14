@@ -15,25 +15,27 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { fetchProfile } from "../services/authService";
-import {
-  fetchNotificationsForUser,
-  markNotificationRead,
-  type Notification,
-} from "../services/notificationService";
-import { respondToCollaboratorInvite } from "../services/collaboratorService";
-import { fetchProjects } from "../services/projectService";
-import { fetchUsers, type UserSummary } from "../services/userService";
+import { type Notification } from "../graphql/notification.api";
 import {
   AUTH_TOKEN_EVENT,
-  AUTH_USER_EVENT,
-  getStoredUser,
   getToken,
   removeToken,
   setRole,
   setStoredUser,
-  type StoredUser,
 } from "../utils/auth";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import {
+  clearCurrentUser,
+  fetchUsers as loadUsers,
+  refreshCurrentUser,
+} from "../store/userSlice";
+import {
+  clearNotifications,
+  loadNotificationsForUser,
+  updateNotificationStatus,
+} from "../store/notificationsSlice";
+import { loadPublicProjects } from "../store/projectsSlice";
+import { respondToCollaboratorInviteThunk } from "../store/collaboratorsSlice";
 
 /**
  * SearchResult
@@ -77,26 +79,50 @@ export function useNavbar() {
   // --- Navigation and location ---
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useAppDispatch();
 
-  // --- Authentication state ---
-  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
-  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getToken()));
-
-  // --- Menu and dropdown state ---
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  // --- Global user directory state (GraphQL via Redux) ---
+  const {
+    list: cachedUsers,
+    listStatus: usersStatus,
+    listError: usersError,
+  } = useAppSelector((state) => state.users);
+  const currentUserId = useAppSelector((state) => state.users.currentUserId);
+  const user = useAppSelector((state) =>
+    currentUserId ? state.users.byId[currentUserId] ?? null : null,
+  );
+  const currentUserStatus = useAppSelector(
+    (state) => state.users.currentUserStatus,
+  );
 
   // --- Notification state ---
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsError, setNotificationsError] = useState<string | null>(
+  const [notificationsUiError, setNotificationsUiError] = useState<string | null>(
     null,
   );
   const [notificationActionMessage, setNotificationActionMessage] = useState<
     string | null
   >(null);
   const [processingInvites, setProcessingInvites] = useState<number[]>([]);
+
+  const notifications = useAppSelector((state) => state.notifications.list);
+  const notificationsStatus = useAppSelector((state) => state.notifications.status);
+  const notificationsStateError = useAppSelector(
+    (state) => state.notifications.error,
+  );
+  const notificationsLoading = notificationsStatus === "loading";
+  const notificationsError = notificationsUiError ?? notificationsStateError;
+
+  const publicProjects = useAppSelector((state) => state.projects.list);
+  const projectsStatus = useAppSelector((state) => state.projects.status);
+  const projectsError = useAppSelector((state) => state.projects.error);
+
+  // --- Authentication state ---
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getToken()));
+
+  // --- Menu and dropdown state ---
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // --- Search state ---
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,12 +137,6 @@ export function useNavbar() {
   const avatarRef = useRef<HTMLDivElement>(null);
   const notificationRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
-
-  // --- Cached data for search ---
-  const projectCacheRef =
-    useRef<Awaited<ReturnType<typeof fetchProjects>> | null>(null);
-  const userCacheRef = useRef<UserSummary[] | null>(null);
-
   /**
    * resetAuthState
    *
@@ -127,15 +147,15 @@ export function useNavbar() {
     removeToken();
     setStoredUser(null);
     setRole(null);
-    setUser(null);
+    dispatch(clearCurrentUser());
     setIsLoggedIn(false);
     setIsMenuOpen(false);
     setIsNotificationOpen(false);
-    setNotifications([]);
-    setNotificationsError(null);
+    dispatch(clearNotifications());
+    setNotificationsUiError(null);
     setNotificationActionMessage(null);
     setProcessingInvites([]);
-  }, []);
+  }, [dispatch]);
 
   /**
    * Effect: Sync authentication state across browser tabs and events.
@@ -145,22 +165,15 @@ export function useNavbar() {
     const syncAuthState = () => {
       const tokenPresent = Boolean(getToken());
       setIsLoggedIn(tokenPresent);
-      setUser(tokenPresent ? getStoredUser() : null);
-    };
-
-    const syncUser = () => {
-      setUser(getStoredUser());
     };
 
     window.addEventListener(AUTH_TOKEN_EVENT, syncAuthState);
-    window.addEventListener(AUTH_USER_EVENT, syncUser);
     window.addEventListener("storage", syncAuthState);
 
     syncAuthState();
 
     return () => {
       window.removeEventListener(AUTH_TOKEN_EVENT, syncAuthState);
-      window.removeEventListener(AUTH_USER_EVENT, syncUser);
       window.removeEventListener("storage", syncAuthState);
     };
   }, []);
@@ -169,26 +182,14 @@ export function useNavbar() {
    * Effect: Load user profile after successful login.
    */
   useEffect(() => {
-    if (!isLoggedIn) return;
-    let cancelled = false;
-
-    const loadProfile = async () => {
-      try {
-        const profile = await fetchProfile();
-        if (!cancelled) {
-          setStoredUser(profile);
-          setUser(profile);
-        }
-      } catch {
-        if (!cancelled) resetAuthState();
-      }
-    };
-
-    void loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn, resetAuthState]);
+    if (!isLoggedIn) {
+      dispatch(clearCurrentUser());
+      return;
+    }
+    if (currentUserStatus === "idle") {
+      void dispatch(refreshCurrentUser());
+    }
+  }, [currentUserStatus, dispatch, isLoggedIn]);
 
   /** Logs out and redirects to the login page. */
   const handleLogout = useCallback(() => {
@@ -260,26 +261,26 @@ export function useNavbar() {
    */
   const loadNotifications = useCallback(async () => {
     if (!user?.id) {
-      setNotifications([]);
+      dispatch(clearNotifications());
       return;
     }
 
-    setNotificationsLoading(true);
-    setNotificationsError(null);
+    setNotificationsUiError(null);
     setNotificationActionMessage(null);
     setProcessingInvites([]);
 
     try {
-      const data = await fetchNotificationsForUser(user.id);
-      setNotifications(data);
-    } catch (err) {
+      await dispatch(loadNotificationsForUser(user.id)).unwrap();
+    } catch (error) {
       const message =
-        err instanceof Error ? err.message : "Unable to load notifications.";
-      setNotificationsError(message);
-    } finally {
-      setNotificationsLoading(false);
+        typeof error === "string"
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "Unable to load notifications.";
+      setNotificationsUiError(message);
     }
-  }, [user?.id]);
+  }, [dispatch, user?.id]);
 
   /** Derived count of unread notifications. */
   const unreadCount = useMemo(
@@ -322,11 +323,10 @@ export function useNavbar() {
   useEffect(() => {
     if (isLoggedIn && user?.id) void loadNotifications();
     else {
-      setNotifications([]);
-      setNotificationsError(null);
-      setNotificationsLoading(false);
+      dispatch(clearNotifications());
+      setNotificationsUiError(null);
     }
-  }, [isLoggedIn, user?.id, loadNotifications]);
+  }, [dispatch, isLoggedIn, user?.id, loadNotifications]);
 
   /**
    * Effect: Execute search when search panel is open
@@ -340,77 +340,107 @@ export function useNavbar() {
       return;
     }
 
+    setSearchLoading(true);
+    setSearchError(null);
+
+    if (searchType === "users") {
+      if (usersStatus === "idle") {
+        void dispatch(loadUsers());
+      }
+
+      if (usersStatus === "failed") {
+        setSearchResults([]);
+        setSearchLoading(false);
+        setSearchError(usersError ?? "Unable to search right now.");
+        return;
+      }
+
+      if (
+        (usersStatus === "loading" || usersStatus === "idle") &&
+        cachedUsers.length === 0
+      ) {
+        return;
+      }
+
+      const term = trimmedSearch.toLowerCase();
+      const matches = cachedUsers
+        .filter((u) => {
+          const username = u.username?.toLowerCase() ?? "";
+          const email = u.email?.toLowerCase() ?? "";
+          return username.includes(term) || email.includes(term);
+        })
+        .slice(0, 6)
+        .map((u) => ({
+          id: u.id,
+          title: u.username ?? u.email ?? `User #${u.id}`,
+          subtitle: u.email ?? "No email provided",
+          type: "user" as const,
+          email: u.email ?? undefined,
+          avatarUrl: u.avatar_url ?? null,
+        }));
+
+      setSearchResults(matches);
+      setSearchLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
-    const executeSearch = async () => {
-      setSearchLoading(true);
-      setSearchError(null);
+    const runProjectSearch = () => {
+      if (projectsStatus === "idle") {
+        void dispatch(loadPublicProjects());
+        return;
+      }
 
-      try {
-        if (searchType === "projects") {
-          if (!projectCacheRef.current)
-            projectCacheRef.current = await fetchProjects();
+      if (projectsStatus === "failed") {
+        setSearchResults([]);
+        setSearchLoading(false);
+        setSearchError(projectsError ?? "Unable to search right now.");
+        return;
+      }
 
-          const source = projectCacheRef.current ?? [];
-          const matches = source
-            .filter((p) => {
-              const term = trimmedSearch.toLowerCase();
-              return (
-                p.title?.toLowerCase().includes(term) ||
-                p.description?.toLowerCase().includes(term)
-              );
-            })
-            .slice(0, 6)
-            .map((p) => ({
-              id: p.id,
-              title: p.title ?? `Project #${p.id}`,
-              subtitle: p.description?.slice(0, 72) ?? "No description provided",
-              type: "project" as const,
-            }));
-          if (!cancelled) setSearchResults(matches);
-        } else {
-          if (!userCacheRef.current)
-            userCacheRef.current = await fetchUsers();
+      if (projectsStatus === "loading" && publicProjects.length === 0) {
+        return;
+      }
 
-          const source = userCacheRef.current ?? [];
-          const matches = source
-            .filter((u) => {
-              const term = trimmedSearch.toLowerCase();
-              return (
-                u.username?.toLowerCase().includes(term) ||
-                u.email?.toLowerCase().includes(term)
-              );
-            })
-            .slice(0, 6)
-            .map((u) => ({
-              id: u.id,
-              title: u.username ?? u.email ?? `User #${u.id}`,
-              subtitle: u.email ?? "No email provided",
-              type: "user" as const,
-              email: u.email ?? undefined,
-              avatarUrl: u.avatar_url ?? null,
-            }));
-          if (!cancelled) setSearchResults(matches);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          const message =
-            error instanceof Error
-              ? error.message
-              : "Unable to search right now.";
-          setSearchError(message);
-          setSearchResults([]);
-        }
-      } finally {
-        if (!cancelled) setSearchLoading(false);
+      const term = trimmedSearch.toLowerCase();
+      const matches = publicProjects
+        .filter((p) => {
+          return (
+            p.title?.toLowerCase().includes(term) ||
+            p.description?.toLowerCase().includes(term)
+          );
+        })
+        .slice(0, 6)
+        .map((p) => ({
+          id: p.id,
+          title: p.title ?? `Project #${p.id}`,
+          subtitle: p.description?.slice(0, 72) ?? "No description provided",
+          type: "project" as const,
+        }));
+
+      if (!cancelled) {
+        setSearchResults(matches);
+        setSearchLoading(false);
       }
     };
 
-    void executeSearch();
+    runProjectSearch();
     return () => {
       cancelled = true;
     };
-  }, [isSearchOpen, searchType, trimmedSearch]);
+  }, [
+    cachedUsers,
+    dispatch,
+    isSearchOpen,
+    searchType,
+    trimmedSearch,
+    usersError,
+    usersStatus,
+    publicProjects,
+    projectsError,
+    projectsStatus,
+  ]);
 
   /** Utility for formatting timestamps in notifications. */
   const formatTimestamp = useCallback((timestamp?: string) => {
@@ -445,25 +475,25 @@ export function useNavbar() {
 
       if (!notification.is_read) {
         try {
-          await markNotificationRead(notification.id, true);
-          setNotifications((prev) =>
-            prev.map((item) =>
-              item.id === notification.id
-                ? { ...item, is_read: true, read_at: new Date().toISOString() }
-                : item,
-            ),
-          );
+          await dispatch(
+            updateNotificationStatus({
+              notificationId: notification.id,
+              isRead: true,
+            }),
+          ).unwrap();
         } catch (err) {
           const message =
-            err instanceof Error
-              ? err.message
-              : "Unable to update notification.";
-          setNotificationsError(message);
+            typeof err === "string"
+              ? err
+              : err instanceof Error
+                ? err.message
+                : "Unable to update notification.";
+          setNotificationsUiError(message);
         }
       }
       setIsNotificationOpen(false);
     },
-    [],
+    [dispatch],
   );
 
   /**
@@ -507,59 +537,41 @@ export function useNavbar() {
   const handleInviteResponse = useCallback(
     async (notification: Notification, accept: boolean) => {
       if (!user?.id) {
-        setNotificationsError(
+        setNotificationsUiError(
           "You need to be logged in to respond to invitations.",
         );
         return;
       }
 
       setNotificationActionMessage(null);
-      setNotificationsError(null);
+      setNotificationsUiError(null);
       setProcessingInvites((prev) =>
         prev.includes(notification.id) ? prev : [...prev, notification.id],
       );
 
       try {
-        const result = await respondToCollaboratorInvite(notification.id, {
-          userId: user.id,
-          accept,
-        });
-        const respondedAt = new Date().toISOString();
-        const status: "accepted" | "declined" = accept
-          ? "accepted"
-          : "declined";
-
-        setNotifications((prev) =>
-          prev.map((item) =>
-            item.id === notification.id
-              ? {
-                  ...item,
-                  is_read: true,
-                  read_at: respondedAt,
-                  metadata: {
-                    ...(item.metadata ?? {}),
-                    status,
-                    respondedAt,
-                  },
-                }
-              : item,
-          ),
-        );
-
+        const result = await dispatch(
+          respondToCollaboratorInviteThunk({
+            notificationId: notification.id,
+            userId: user.id,
+            accept,
+          }),
+        ).unwrap();
         setNotificationActionMessage(result.message);
+        void loadNotifications();
       } catch (err) {
         const message =
           err instanceof Error
             ? err.message
             : "Unable to respond to invitation.";
-        setNotificationsError(message);
+        setNotificationsUiError(message);
       } finally {
         setProcessingInvites((prev) =>
           prev.filter((id) => id !== notification.id),
         );
       }
     },
-    [user?.id],
+    [dispatch, loadNotifications, user?.id],
   );
 
   /**
@@ -573,20 +585,27 @@ export function useNavbar() {
     }
     setNotificationActionMessage(null);
     try {
-      await Promise.all(unread.map((n) => markNotificationRead(n.id, true)));
-      const nowIso = new Date().toISOString();
-      setNotifications((prev) =>
-        prev.map((n) => (n.is_read ? n : { ...n, is_read: true, read_at: nowIso })),
+      await Promise.all(
+        unread.map((notification) =>
+          dispatch(
+            updateNotificationStatus({
+              notificationId: notification.id,
+              isRead: true,
+            }),
+          ).unwrap(),
+        ),
       );
       setIsNotificationOpen(false);
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Unable to update notifications right now.";
-      setNotificationsError(message);
+        typeof err === "string"
+          ? err
+          : err instanceof Error
+            ? err.message
+            : "Unable to update notifications right now.";
+      setNotificationsUiError(message);
     }
-  }, [notifications]);
+  }, [dispatch, notifications]);
 
   /** Closes both dropdown menus simultaneously. */
   const closeMenus = useCallback(() => {

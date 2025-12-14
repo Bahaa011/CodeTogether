@@ -9,12 +9,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ProjectTag } from './project-tag.entity';
 import { ProjectTagService } from './project-tag.service';
-import { ProjectTagController } from './project-tag.controller';
+import { ProjectTagResolver } from './project-tag.resolver';
 
 @Module({
   imports: [TypeOrmModule.forFeature([ProjectTag])], // Registers ProjectTag entity
-  controllers: [ProjectTagController],               // Exposes tag management endpoints
-  providers: [ProjectTagService],                    // Contains tag business logic
-  exports: [ProjectTagService],                      // Makes service reusable across modules
+  providers: [ProjectTagService, ProjectTagResolver], // Contains tag business logic + GraphQL resolver
+  exports: [ProjectTagService], // Makes service reusable across modules
 })
 export class ProjectTagModule {}

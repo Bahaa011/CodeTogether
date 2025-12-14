@@ -25,10 +25,16 @@ export class Version {
   @ManyToOne(() => File, (file) => file.versions, { onDelete: 'CASCADE' })
   file: File; // The file this version belongs to
 
-  @ManyToOne(() => User, (user) => user.versions, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => User, (user) => user.versions, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
   user: User; // User who created the version (nullable)
 
-  @ManyToOne(() => Session, (session) => session.versions, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => Session, (session) => session.versions, {
+    onDelete: 'SET NULL',
+    nullable: true,
+  })
   session: Session; // Session during which this version was created (nullable)
 
   @Column({ type: 'text' })

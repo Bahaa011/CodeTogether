@@ -62,7 +62,7 @@ export class VersionService {
     return await this.versionRepo.find({
       where: { file: { id: Number(fileId) } },
       order: { version_number: 'DESC' },
-      relations: ['user', 'session'],
+      relations: ['user', 'session', 'file'],
     });
   }
 

@@ -20,7 +20,7 @@
 
 import { Bell, Plus, Search, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { NotificationMetadata } from "../services/notificationService";
+import type { NotificationMetadata } from "../graphql/notification.api";
 import "../styles/navbar.css";
 import { resolveAssetUrl } from "../utils/url";
 import { useNavbar } from "../hooks/useNavbar";

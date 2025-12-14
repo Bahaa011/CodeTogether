@@ -107,7 +107,10 @@ export class AuthService {
       return { message: 'Password reset email sent successfully' };
     } catch (err) {
       console.error('❌ Error sending email:', err);
-      return { message: 'Email sending failed, showing reset link instead', resetLink };
+      return {
+        message: 'Email sending failed, showing reset link instead',
+        resetLink,
+      };
     }
   }
 
@@ -117,7 +120,8 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string) {
     const user = await this.userService.getUserByResetToken(token);
     if (!user) return null;
-    if (!user.reset_token_expiry || user.reset_token_expiry < new Date()) return false;
+    if (!user.reset_token_expiry || user.reset_token_expiry < new Date())
+      return false;
 
     return this.userService.updatePassword(user.id, newPassword);
   }
@@ -145,9 +149,14 @@ export class AuthService {
       throw new UnauthorizedException('Invalid or expired verification token.');
     }
 
-    if (!user.mfa_pending_token_expires_at || user.mfa_pending_token_expires_at < new Date()) {
+    if (
+      !user.mfa_pending_token_expires_at ||
+      user.mfa_pending_token_expires_at < new Date()
+    ) {
       await this.userService.clearMfaChallenge(user.id);
-      throw new UnauthorizedException('Verification code expired. Please sign in again.');
+      throw new UnauthorizedException(
+        'Verification code expired. Please sign in again.',
+      );
     }
 
     if (!user.mfa_code) {
@@ -155,7 +164,8 @@ export class AuthService {
     }
 
     const isMatch = await bcrypt.compare(code, user.mfa_code);
-    if (!isMatch) throw new UnauthorizedException('Incorrect verification code.');
+    if (!isMatch)
+      throw new UnauthorizedException('Incorrect verification code.');
 
     await this.userService.clearMfaChallenge(user.id);
     return this.issueSession(user);
@@ -170,13 +180,19 @@ export class AuthService {
     const token = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await this.userService.storeMfaChallenge(user.id, hashedOtp, token, expiresAt);
+    await this.userService.storeMfaChallenge(
+      user.id,
+      hashedOtp,
+      token,
+      expiresAt,
+    );
     await this.sendOtpEmail(user.email, user.username, otp);
 
     return {
       requires_mfa: true,
       mfaToken: token,
-      message: 'We sent a 6-digit code to your email. Enter it to finish signing in.',
+      message:
+        'We sent a 6-digit code to your email. Enter it to finish signing in.',
     };
   }
 
@@ -230,7 +246,9 @@ export class AuthService {
       await transporter.sendMail(mailOptions);
     } catch (error) {
       console.error('Failed to send MFA email:', error);
-      throw new BadRequestException('Unable to send verification code. Try again later.');
+      throw new BadRequestException(
+        'Unable to send verification code. Try again later.',
+      );
     }
   }
 

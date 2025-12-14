@@ -11,16 +11,20 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  loginUser,
-  registerUser,
-  requestPasswordReset,
-  resetPassword,
-  verifyMfaLogin,
   type LoginResponse,
   type LoginSuccessResponse,
   type MfaChallengeResponse,
-} from "../services/authService";
+} from "../graphql/auth.api";
 import { getToken, setRole, setStoredUser, setToken } from "../utils/auth";
+import { useAppDispatch } from "../store/hooks";
+import {
+  authenticateUser,
+  registerUserThunk,
+  requestPasswordResetThunk,
+  resetPasswordThunk,
+  setCurrentUser,
+  verifyMfaCode,
+} from "../store/userSlice";
 
 /* -------------------------------------------------------------------------- */
 /*                              useLoginForm Hook                             */
@@ -65,6 +69,7 @@ export function useLoginForm({
   replaceLocation,
   redirectState,
 }: UseLoginFormOptions) {
+  const dispatch = useAppDispatch();
   // -------------------- Basic login state --------------------
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -119,10 +124,11 @@ export function useLoginForm({
       setToken(data.access_token);
       setStoredUser(data.user);
       setRole((data.user as { role?: string }).role || null);
+      dispatch(setCurrentUser(data.user));
       setHasToken(true);
       onAuthenticated();
     },
-    [onAuthenticated],
+    [dispatch, onAuthenticated],
   );
 
   /** Standard email/password login handler. */
@@ -138,7 +144,9 @@ export function useLoginForm({
       setMfaCode("");
 
       try {
-        const data = await loginUser(email, password);
+        const data = await dispatch(
+          authenticateUser({ email: email.trim(), password }),
+        ).unwrap();
 
         // MFA required → show second step
         if (isMfaChallengeResponse(data)) {
@@ -157,7 +165,7 @@ export function useLoginForm({
         setIsSubmitting(false);
       }
     },
-    [email, password, handleLoginSuccess],
+    [dispatch, email, password, handleLoginSuccess],
   );
 
   /** Verifies MFA code during two-step login. */
@@ -173,7 +181,9 @@ export function useLoginForm({
       setIsVerifyingMfa(true);
 
       try {
-        const data = await verifyMfaLogin(mfaToken, mfaCode.trim());
+        const data = await dispatch(
+          verifyMfaCode({ token: mfaToken, code: mfaCode.trim() }),
+        ).unwrap();
         handleLoginSuccess(data);
       } catch (err) {
         const message =
@@ -185,7 +195,7 @@ export function useLoginForm({
         setIsVerifyingMfa(false);
       }
     },
-    [handleLoginSuccess, mfaCode, mfaToken],
+    [dispatch, handleLoginSuccess, mfaCode, mfaToken],
   );
 
   /** Cancels MFA step and returns to login form. */
@@ -225,7 +235,9 @@ export function useLoginForm({
       setResetSuccess(null);
 
       try {
-        const message = await requestPasswordReset(trimmedEmail);
+        const message = await dispatch(
+          requestPasswordResetThunk({ email: trimmedEmail }),
+        ).unwrap();
         setResetSuccess(message);
         onResetSuccess(message);
       } catch (err) {
@@ -238,7 +250,7 @@ export function useLoginForm({
         setIsResetSubmitting(false);
       }
     },
-    [isResetSubmitting, onResetSuccess, resetEmail],
+    [dispatch, isResetSubmitting, onResetSuccess, resetEmail],
   );
 
   /* -------------------- UI Text -------------------- */
@@ -311,6 +323,7 @@ export function useRegisterForm({
   redirectPath,
   onRegistered,
 }: UseRegisterFormOptions) {
+  const dispatch = useAppDispatch();
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -333,7 +346,13 @@ export function useRegisterForm({
       setIsSubmitting(true);
 
       try {
-        await registerUser(username.trim(), email.trim(), password);
+        await dispatch(
+          registerUserThunk({
+            username: username.trim(),
+            email: email.trim(),
+            password,
+          }),
+        ).unwrap();
         onRegistered();
       } catch (err) {
         const message =
@@ -342,7 +361,7 @@ export function useRegisterForm({
         setIsSubmitting(false);
       }
     },
-    [confirmPassword, email, onRegistered, password, username],
+    [confirmPassword, dispatch, email, onRegistered, password, username],
   );
 
   return {
@@ -389,6 +408,7 @@ export function useResetPasswordForm({
   token,
   onSuccess,
 }: UseResetPasswordFormOptions) {
+  const dispatch = useAppDispatch();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(
@@ -427,7 +447,9 @@ export function useResetPasswordForm({
       setError(null);
 
       try {
-        const message = await resetPassword(trimmedToken, password);
+        const message = await dispatch(
+          resetPasswordThunk({ token: trimmedToken, password }),
+        ).unwrap();
         setIsSubmitting(false);
         onSuccess(message);
       } catch (err) {
@@ -439,7 +461,7 @@ export function useResetPasswordForm({
         setIsSubmitting(false);
       }
     },
-    [confirmPassword, isSubmitting, onSuccess, password, token],
+    [confirmPassword, dispatch, isSubmitting, onSuccess, password, token],
   );
 
   return {

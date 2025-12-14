@@ -9,12 +9,11 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Notification } from './notification.entity';
 import { NotificationService } from './notification.service';
-import { NotificationController } from './notification.controller';
+import { NotificationResolver } from './notification.resolver';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Notification])], // Registers Notification entity
-  controllers: [NotificationController],               // Exposes REST API endpoints
-  providers: [NotificationService],                    // Contains notification business logic
-  exports: [NotificationService],                      // Makes the service reusable by other modules
+  providers: [NotificationService, NotificationResolver], // Contains notification business logic + GraphQL resolver
+  exports: [NotificationService], // Makes the service reusable by other modules
 })
 export class NotificationModule {}

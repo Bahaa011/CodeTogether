@@ -42,6 +42,7 @@ export class ProjectTagService {
   async findByProject(projectId: number) {
     return await this.tagRepo.find({
       where: { project: { id: Number(projectId) } },
+      relations: ['project'],
     });
   }
 
@@ -50,7 +51,10 @@ export class ProjectTagService {
    * Throws a 404 if the tag does not exist.
    */
   async update(id: number, tag?: string) {
-    const projectTag = await this.tagRepo.findOne({ where: { id: Number(id) } });
+    const projectTag = await this.tagRepo.findOne({
+      where: { id: Number(id) },
+      relations: ['project'],
+    });
     if (!projectTag) throw new NotFoundException('Project tag not found.');
     if (tag) projectTag.tag = tag;
     return await this.tagRepo.save(projectTag);

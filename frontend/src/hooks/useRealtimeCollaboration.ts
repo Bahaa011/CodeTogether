@@ -31,11 +31,21 @@ import {
   type TextOperation,
 } from "../utils/textOt";
 
-/** Collaboration server base URL. */
-const COLLAB_URL =
+/** Normalize socket URL (strip trailing/graphql, enforce https when needed). */
+const normalizeSocketUrl = (raw: string) => {
+  const trimmed = raw.replace(/\/graphql\/?$/i, "").replace(/\/+$/, "");
+  if (typeof window !== "undefined" && window.location.protocol === "https:") {
+    return trimmed.replace(/^http:\/\//i, "https://");
+  }
+  return trimmed;
+};
+
+/** Collaboration server base URL. Prefer env, else current origin, else localhost. */
+const COLLAB_URL = normalizeSocketUrl(
   import.meta.env.VITE_COLLAB_WS_URL ??
-  import.meta.env.VITE_API_URL ??
-  "http://localhost:3000";
+    import.meta.env.VITE_API_URL ??
+    "http://localhost:3000",
+);
 
 /**
  * Types
@@ -114,17 +124,24 @@ export function useRealtimeCollaboration({
       : `client-${Math.random().toString(36).slice(2, 10)}`,
   );
 
-  const activeFileId = activeFile?.id ?? null;
+  const activeFileId = useMemo(() => {
+    const numeric = Number(activeFile?.id);
+    return Number.isFinite(numeric) ? numeric : null;
+  }, [activeFile?.id]);
 
   // ───────────────────────────────
   // 🔹 Join Document
   // ───────────────────────────────
-  const joinDocument = useCallback((fileId: number | null) => {
-    const socket = socketRef.current;
-    if (!socket || !socket.connected || !fileId) return;
-    socket.emit("editor:join", { fileId });
-    setStatus("connecting");
-  }, []);
+  const joinDocument = useCallback(
+    (fileId: number | null) => {
+      const socket = socketRef.current;
+      const numericFileId = Number(fileId);
+      if (!socket || !socket.connected || !Number.isFinite(numericFileId)) return;
+      socket.emit("editor:join", { fileId: numericFileId });
+      setStatus("connecting");
+    },
+    [],
+  );
 
   // ───────────────────────────────
   // 🔹 Apply Remote Operation
@@ -135,7 +152,7 @@ export function useRealtimeCollaboration({
 
       const nextContent = applyOperation(contentRef.current, payload.components);
       contentRef.current = nextContent;
-      serverVersionRef.current = payload.version;
+      serverVersionRef.current = Math.max(serverVersionRef.current, payload.version);
       localVersionRef.current = Math.max(localVersionRef.current, payload.version);
 
       syncFileContent(payload.fileId, nextContent, true);
@@ -163,28 +180,35 @@ export function useRealtimeCollaboration({
   useEffect(() => {
     const socket = io(COLLAB_URL, {
       autoConnect: true,
-      transports: ["websocket"],
+      // Allow polling fallback so collaboration still works when websockets are blocked
+      transports: ["websocket", "polling"],
     });
 
     socketRef.current = socket;
     setStatus("connecting");
-
     /** When the socket connects, join the active document. */
     const handleConnect = () => {
       setStatus("connecting");
+      serverVersionRef.current = 0;
+      localVersionRef.current = 0;
+      pendingOpsRef.current = [];
+      remoteBufferRef.current = [];
       if (activeFileId) joinDocument(activeFileId);
     };
 
     /** When disconnected, mark the status as idle. */
-    const handleDisconnect = () => setStatus("idle");
+    const handleDisconnect = () => {
+      setStatus("idle");
+    };
 
     /** When the server sends full doc content + version (initial ready state). */
     const handleReady = (payload: { fileId: number; content: string; version: number }) => {
-      if (payload.fileId !== activeFileId) return;
+      const numericFileId = Number(payload.fileId);
+      if (fileIdRef.current && numericFileId !== fileIdRef.current) return;
       pendingOpsRef.current = [];
       remoteBufferRef.current = [];
       contentRef.current = payload.content ?? "";
-      fileIdRef.current = payload.fileId;
+      fileIdRef.current = numericFileId;
       serverVersionRef.current = payload.version;
       localVersionRef.current = payload.version;
       syncFileContent(payload.fileId, payload.content ?? "", true);
@@ -196,11 +220,11 @@ export function useRealtimeCollaboration({
     /** When a new operation is broadcasted by the server. */
     const handleOperationApplied = (payload: OperationAppliedEvent) => {
       if (payload.fileId !== fileIdRef.current) return;
-
       // If this operation originated from this client
       if (payload.clientId === clientIdRef.current) {
         pendingOpsRef.current.shift();
-        serverVersionRef.current = payload.version;
+        serverVersionRef.current = Math.max(serverVersionRef.current, payload.version);
+        localVersionRef.current = Math.max(localVersionRef.current, payload.version);
         if (pendingOpsRef.current.length === 0) processBufferedRemoteOps();
         return;
       }
@@ -264,6 +288,8 @@ export function useRealtimeCollaboration({
     fileIdRef.current = activeFileId;
     pendingOpsRef.current = [];
     remoteBufferRef.current = [];
+    serverVersionRef.current = 0;
+    localVersionRef.current = 0;
     joinDocument(activeFileId);
   }, [activeFile?.draftContent, activeFileId, joinDocument]);
 
@@ -275,7 +301,13 @@ export function useRealtimeCollaboration({
     (value: string | undefined) => {
       const socket = socketRef.current;
       const fileId = fileIdRef.current;
-      if (!socket || !socket.connected || !fileId || !canEdit) {
+      if (
+        !socket ||
+        !socket.connected ||
+        !fileId ||
+        !canEdit ||
+        status !== "ready"
+      ) {
         contentRef.current = value ?? contentRef.current;
         return;
       }
@@ -294,7 +326,6 @@ export function useRealtimeCollaboration({
       localVersionRef.current += 1;
       pendingOpsRef.current.push({ version: baseVersion, components });
       contentRef.current = nextValue;
-
       socket.emit("editor:operation", {
         fileId,
         version: baseVersion,
@@ -302,7 +333,7 @@ export function useRealtimeCollaboration({
         clientId: clientIdRef.current,
       });
     },
-    [canEdit],
+    [canEdit, status],
   );
 
   // ───────────────────────────────

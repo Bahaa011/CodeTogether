@@ -5,17 +5,16 @@
  * Designed for use in both modal and panel contexts (e.g., BackupHistoryModal).
  *
  * Responsibilities:
- * - Load a file's historical backups from the backend (via versionService).
+ * - Load a file's historical backups from the backend (via GraphQL).
  * - Track the selected backup and its metadata.
  * - Provide a helper to preview a backup’s contents in a new tab.
  * - Expose a reactive "state" descriptor (loading, error, empty, etc.).
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  fetchFileBackups,
-  type VersionRecord,
-} from "../services/versionService";
+import { type VersionRecord } from "../graphql/version.api";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { loadBackupsForFile } from "../store/backupsSlice";
 
 /**
  * UseBackupHistoryOptions
@@ -55,54 +54,37 @@ export function useBackupHistory({
   open = false,
 }: UseBackupHistoryOptions) {
   const isPanel = variant === "panel";
-
-  // State
-  const [backups, setBackups] = useState<VersionRecord[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const record = useAppSelector((state) =>
+    fileId ? state.backups.byFileId[fileId] : undefined,
+  );
+  const emptyBackups = useMemo<VersionRecord[]>(() => [], []);
+  const backups = record?.list ?? emptyBackups;
+  const loading = record?.status === "loading";
+  const error = record?.error ?? null;
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
-  // Data Fetch Logic
+  const shouldLoad = Boolean(fileId) && (isPanel ? Boolean(fileId) : open);
+
   useEffect(() => {
-    const shouldLoad = isPanel ? Boolean(fileId) : open;
-    if (!shouldLoad) return;
-
-    let cancelled = false;
-
-    const loadBackups = async (targetFileId: number) => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await fetchFileBackups(targetFileId);
-        if (cancelled) return;
-
-        setBackups(data);
-        setSelectedId(data[0]?.id ?? null);
-      } catch (err) {
-        if (cancelled) return;
-
-        const message =
-          err instanceof Error ? err.message : "Unable to load backups.";
-        setError(message);
-        setBackups([]);
-        setSelectedId(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    if (fileId) {
-      void loadBackups(fileId);
-    } else {
-      setBackups([]);
+    if (!fileId || !shouldLoad) {
       setSelectedId(null);
+      return;
     }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [fileId, isPanel, open]);
+    void dispatch(loadBackupsForFile(fileId));
+  }, [dispatch, fileId, shouldLoad]);
+
+  useEffect(() => {
+    if (!backups.length) {
+      setSelectedId(null);
+      return;
+    }
+    if (selectedId && backups.some((backup) => backup.id === selectedId)) {
+      return;
+    }
+    setSelectedId(backups[0]?.id ?? null);
+  }, [backups, selectedId]);
 
   // Derived State & Helpers
   const selectedBackup = useMemo(

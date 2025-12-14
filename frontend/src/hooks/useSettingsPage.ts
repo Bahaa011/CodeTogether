@@ -10,13 +10,13 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchProfile, toggleMfa } from "../services/authService";
+import { getToken } from "../utils/auth";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
-  getStoredUser,
-  getToken,
-  setStoredUser,
-  type StoredUser,
-} from "../utils/auth";
+  clearCurrentUser,
+  refreshCurrentUser,
+  toggleUserMfa,
+} from "../store/userSlice";
 
 /**
  * useSettingsPage
@@ -39,47 +39,37 @@ import {
  * - isAuthenticated: True if a valid token exists.
  */
 export function useSettingsPage() {
+  const dispatch = useAppDispatch();
   const token = getToken();
   const isAuthenticated = Boolean(token);
-  const [user, setUser] = useState<StoredUser | null>(() => getStoredUser());
-  const [loading, setLoading] = useState(() => isAuthenticated && !user);
-  const [error, setError] = useState<string | null>(null);
+  const currentUserId = useAppSelector((state) => state.users.currentUserId);
+  const user = useAppSelector((state) =>
+    currentUserId ? state.users.byId[currentUserId] ?? null : null,
+  );
+  const currentUserStatus = useAppSelector(
+    (state) => state.users.currentUserStatus,
+  );
+  const storeError = useAppSelector(
+    (state) => state.users.currentUserError,
+  );
+  const loading = isAuthenticated && currentUserStatus === "loading";
+  const [error, setError] = useState<string | null>(storeError);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [mfaBusy, setMfaBusy] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    if (!token) {
-      setLoading(false);
+    if (!isAuthenticated) {
+      dispatch(clearCurrentUser());
       return;
     }
+    if (currentUserStatus === "idle") {
+      void dispatch(refreshCurrentUser());
+    }
+  }, [currentUserStatus, dispatch, isAuthenticated]);
 
-    const loadProfile = async () => {
-      try {
-        const profile = await fetchProfile();
-        if (cancelled) return;
-        setUser(profile);
-        setStoredUser(profile);
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Unable to load your settings right now.";
-        setError(message);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadProfile();
-    return () => {
-      cancelled = true;
-    };
-  }, [token]);
+  useEffect(() => {
+    setError(storeError);
+  }, [storeError]);
 
   const handleToggleMfa = useCallback(async () => {
     if (!user || mfaBusy) return;
@@ -88,9 +78,9 @@ export function useSettingsPage() {
     setMfaBusy(true);
 
     try {
-      const updated = await toggleMfa(!user.mfa_enabled);
-      setUser(updated);
-      setStoredUser(updated);
+      const updated = await dispatch(
+        toggleUserMfa({ enabled: !user.mfa_enabled }),
+      ).unwrap();
       setFeedback(
         updated.mfa_enabled
           ? "Multi-factor authentication is now enabled. We'll email you a 6-digit code when you sign in."
@@ -103,7 +93,7 @@ export function useSettingsPage() {
     } finally {
       setMfaBusy(false);
     }
-  }, [mfaBusy, user]);
+  }, [dispatch, mfaBusy, user]);
 
   return {
     user,

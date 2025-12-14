@@ -13,7 +13,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchProjects, type Project } from "../services/projectService";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { loadPublicProjects } from "../store/projectsSlice";
 import { isNonEmptyString, toTimestamp } from "../utils/projectFilters";
 
 /**
@@ -44,10 +45,12 @@ export type ExploreFilterId = "recent" | "popular" | "collaborative";
  * - heroStats: Computed metrics for displaying summary statistics.
  */
 export function useExploreProjects() {
-  // State
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const projects = useAppSelector((state) => state.projects.list);
+  const status = useAppSelector((state) => state.projects.status);
+  const error = useAppSelector((state) => state.projects.error);
+  const loading = status === "loading";
+
   const [activeFilter, setActiveFilter] =
     useState<ExploreFilterId>("popular");
   const [activeTags, setActiveTags] = useState<string[]>([]);
@@ -66,37 +69,11 @@ export function useExploreProjects() {
     setActiveTags([]);
   }, []);
 
-  // Fetch Projects
   useEffect(() => {
-    let cancelled = false;
-
-    const loadProjects = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const data = await fetchProjects();
-        if (cancelled) return;
-        setProjects(data);
-      } catch (err) {
-        if (cancelled) return;
-        const message =
-          err instanceof Error ? err.message : "Unable to load projects.";
-        setError(message);
-        setProjects([]);
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadProjects();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    if (status === "idle" || status === "failed") {
+      void dispatch(loadPublicProjects());
+    }
+  }, [dispatch, status]);
 
   // Derived Hero Statistics
   const heroStats = useMemo(() => {

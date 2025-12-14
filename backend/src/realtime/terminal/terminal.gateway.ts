@@ -75,7 +75,11 @@ export class TerminalGateway {
       const filePath = path.join(tempDir, fileName);
       fs.writeFileSync(filePath, data.code ?? '', { encoding: 'utf8' });
 
-      const dockerCmd = this.getDockerCommand(requestedLanguage, fileName, tempDir);
+      const dockerCmd = this.getDockerCommand(
+        requestedLanguage,
+        fileName,
+        tempDir,
+      );
 
       // Launch Docker in isolated interactive mode
       const child = spawn('docker', dockerCmd, {
@@ -90,11 +94,18 @@ export class TerminalGateway {
         language: requestedLanguage,
       });
 
-      client.emit('started', { filename: fileName, language: requestedLanguage });
+      client.emit('started', {
+        filename: fileName,
+        language: requestedLanguage,
+      });
 
       // Stream container output back to the client
-      child.stdout.on('data', (chunk) => client.emit('stdout', chunk.toString()));
-      child.stderr.on('data', (chunk) => client.emit('stderr', chunk.toString()));
+      child.stdout.on('data', (chunk) =>
+        client.emit('stdout', chunk.toString()),
+      );
+      child.stderr.on('data', (chunk) =>
+        client.emit('stderr', chunk.toString()),
+      );
 
       child.on('error', (error) => {
         client.emit('stderr', `Failed to start execution: ${error.message}`);
@@ -139,14 +150,7 @@ export class TerminalGateway {
    */
   @SubscribeMessage('stop')
   handleStop(@ConnectedSocket() client: Socket) {
-    const session = this.terminals.get(client.id);
-    if (!session) {
-      client.emit('stopped');
-      return;
-    }
-
-    session.process.kill('SIGTERM');
-    client.emit('stopped');
+    this.stopSession(client.id, true, client);
   }
 
   /**
@@ -163,14 +167,22 @@ export class TerminalGateway {
   /**
    * Stops and removes the execution session for a given client.
    */
-  private stopSession(clientId: string, notify = true) {
+  private stopSession(clientId: string, notify = true, client?: Socket) {
     const session = this.terminals.get(clientId);
     if (!session) return;
 
     session.process.kill('SIGTERM');
+    // Force kill if the process ignores SIGTERM
+    const killTimer = setTimeout(() => {
+      session.process.kill('SIGKILL');
+    }, 500);
+
     if (notify) {
+      session.process.once('exit', () => clearTimeout(killTimer));
+      session.process.once('close', () => clearTimeout(killTimer));
       this.safeRemove(session.tempDir);
       this.terminals.delete(clientId);
+      client?.emit('stopped');
     }
   }
 
@@ -204,7 +216,11 @@ export class TerminalGateway {
   /**
    * Builds the correct Docker command for the given language.
    */
-  private getDockerCommand(lang: string, filename: string, tempDir: string): string[] {
+  private getDockerCommand(
+    lang: string,
+    filename: string,
+    tempDir: string,
+  ): string[] {
     switch (lang) {
       case 'python':
         return [

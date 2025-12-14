@@ -117,6 +117,11 @@ export class EditorGateway {
       return;
     }
 
+    if (baseVersion > document.version + 1 && document.history.length === 0) {
+      client.emit('editor:resync', { fileId, version: document.version });
+      return;
+    }
+
     if (baseVersion > document.version) {
       this.queueOperation(document, { ...payload, components: normalized });
       return;

@@ -20,6 +20,13 @@ import { NotificationService } from '../notification/notification.service';
 
 @Injectable()
 export class CollaboratorService {
+  private readonly defaultRelations: string[] = [
+    'user',
+    'project',
+    'project.owner',
+    'project.tags',
+  ];
+
   constructor(
     @InjectRepository(Collaborator)
     private readonly collabRepo: Repository<Collaborator>,
@@ -44,6 +51,7 @@ export class CollaboratorService {
         project: { id: Number(projectId) },
         user: { id: Number(userId) },
       },
+      relations: this.defaultRelations,
     });
     if (existing) return existing;
 
@@ -52,14 +60,19 @@ export class CollaboratorService {
       project: { id: Number(projectId) },
       role,
     });
-    return await this.collabRepo.save(collaborator);
+    const saved = await this.collabRepo.save(collaborator);
+    const created = await this.getCollaboratorById(saved.id);
+    if (!created) throw new NotFoundException('Collaborator not found.');
+    return created;
   }
 
   /**
    * Retrieve all collaborators in the system.
    */
   async getAllCollaborators() {
-    return await this.collabRepo.find({ relations: ['user', 'project'] });
+    return await this.collabRepo.find({
+      relations: this.defaultRelations,
+    });
   }
 
   /**
@@ -68,7 +81,7 @@ export class CollaboratorService {
   async getCollaboratorsByProject(projectId: number) {
     return await this.collabRepo.find({
       where: { project: { id: projectId } },
-      relations: ['user'],
+      relations: this.defaultRelations,
     });
   }
 
@@ -78,7 +91,7 @@ export class CollaboratorService {
   async getCollaboratorsByUser(userId: number) {
     return await this.collabRepo.find({
       where: { user: { id: userId } },
-      relations: ['project', 'project.owner'],
+      relations: this.defaultRelations,
     });
   }
 
@@ -96,10 +109,15 @@ export class CollaboratorService {
    * Throws an error if the collaborator does not exist.
    */
   async updateCollaboratorRole(id: number, newRole: string) {
-    const collab = await this.collabRepo.findOne({ where: { id: Number(id) } });
-    if (!collab) throw new NotFoundException('Collaborator not found.');
-    collab.role = newRole;
-    return await this.collabRepo.save(collab);
+    const existing = await this.collabRepo.findOne({
+      where: { id: Number(id) },
+    });
+    if (!existing) throw new NotFoundException('Collaborator not found.');
+
+    await this.collabRepo.update({ id: Number(id) }, { role: newRole });
+    const updated = await this.getCollaboratorById(Number(id));
+    if (!updated) throw new NotFoundException('Collaborator not found.');
+    return updated;
   }
 
   /**
@@ -109,6 +127,16 @@ export class CollaboratorService {
   async removeCollaborator(id: number): Promise<boolean> {
     const result = await this.collabRepo.delete(Number(id));
     return (result.affected ?? 0) > 0;
+  }
+
+  /**
+   * Retrieve a single collaborator with all default relations.
+   */
+  async getCollaboratorById(id: number) {
+    return this.collabRepo.findOne({
+      where: { id: Number(id) },
+      relations: this.defaultRelations,
+    });
   }
 
   /**
@@ -155,7 +183,9 @@ export class CollaboratorService {
       }));
 
     if (!invitee) {
-      throw new NotFoundException('User not found for the provided identifier.');
+      throw new NotFoundException(
+        'User not found for the provided identifier.',
+      );
     }
 
     if (invitee.id === ownerId) {
@@ -222,7 +252,7 @@ export class CollaboratorService {
       );
     }
 
-    const metadata = (notification.metadata ?? {}) as Record<string, unknown>;
+    const metadata = notification.metadata ?? {};
     const inviteeId = Number(metadata.inviteeId);
 
     if (inviteeId !== Number(userId)) {
@@ -232,7 +262,9 @@ export class CollaboratorService {
     }
 
     if (metadata.status && metadata.status !== 'pending') {
-      throw new BadRequestException('This invitation has already been handled.');
+      throw new BadRequestException(
+        'This invitation has already been handled.',
+      );
     }
 
     const projectId = Number(metadata.projectId);

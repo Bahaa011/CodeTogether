@@ -1,66 +1,140 @@
-/**
- * Collaborator DTOs
- * ------------------
- * Defines the data transfer objects used for creating, updating, and managing collaborators.
- * Includes operations for invitations, role updates, and invite responses.
- */
-
 import {
-  IsBoolean,
-  IsInt,
-  IsOptional,
-  IsString,
-  Min,
-} from 'class-validator';
+  Field,
+  GraphQLISODateTime,
+  Int,
+  ID,
+  InputType,
+  ObjectType,
+} from '@nestjs/graphql';
+import { IsBoolean, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
-/**
- * DTO for adding a collaborator to a project.
- */
-export class CreateCollaboratorDto {
+@ObjectType()
+export class CollaboratorUserInfo {
+  @Field(() => ID)
+  id: number;
+
+  @Field(() => String, { nullable: true })
+  username?: string | null;
+
+  @Field(() => String, { nullable: true })
+  email?: string | null;
+
+  @Field(() => String, { nullable: true })
+  avatar_url?: string | null;
+}
+
+@ObjectType()
+export class CollaboratorProjectTag {
+  @Field(() => ID)
+  id: number;
+
+  @Field(() => String)
+  tag: string;
+}
+
+@ObjectType()
+export class CollaboratorProjectInfo {
+  @Field(() => ID)
+  id: number;
+
+  @Field(() => String, { nullable: true })
+  title?: string | null;
+
+  @Field(() => String, { nullable: true })
+  description?: string | null;
+
+  @Field(() => Boolean, { nullable: true })
+  is_public?: boolean;
+
+  @Field(() => GraphQLISODateTime, { nullable: true })
+  updated_at?: Date | null;
+
+  @Field(() => Int, { nullable: true })
+  owner_id?: number | null;
+
+  @Field(() => CollaboratorUserInfo, { nullable: true })
+  owner?: CollaboratorUserInfo | null;
+
+  @Field(() => [CollaboratorProjectTag], { nullable: true })
+  tags?: CollaboratorProjectTag[] | null;
+}
+
+@ObjectType('Collaborator')
+export class CollaboratorModel {
+  @Field(() => ID)
+  id: number;
+
+  @Field()
+  role: string;
+
+  @Field(() => GraphQLISODateTime)
+  added_at: Date;
+
+  @Field(() => CollaboratorUserInfo, { nullable: true })
+  user?: CollaboratorUserInfo | null;
+
+  @Field(() => CollaboratorProjectInfo, { nullable: true })
+  project?: CollaboratorProjectInfo | null;
+}
+
+@ObjectType()
+export class CollaboratorActionResponse {
+  @Field()
+  message: string;
+
+  @Field({ nullable: true })
+  accepted?: boolean;
+}
+
+@InputType()
+export class CreateCollaboratorInput {
+  @Field()
   @IsInt()
   @Min(1)
   userId: number;
 
+  @Field()
   @IsInt()
   @Min(1)
   projectId: number;
 
+  @Field({ nullable: true })
   @IsOptional()
   @IsString()
   role?: string;
 }
 
-/**
- * DTO for updating a collaborator's role.
- */
-export class UpdateCollaboratorRoleDto {
+@InputType()
+export class UpdateCollaboratorRoleInput {
+  @Field()
   @IsString()
   role: string;
 }
 
-/**
- * DTO for inviting a collaborator by email or username.
- */
-export class InviteCollaboratorDto {
+@InputType()
+export class InviteCollaboratorInput {
+  @Field()
   @IsInt()
   @Min(1)
   inviterId: number;
 
+  @Field()
   @IsInt()
   @Min(1)
   projectId: number;
 
+  @Field()
   @IsString()
   inviteeIdentifier: string;
 }
 
-/**
- * DTO for accepting or rejecting a collaboration invite.
- */
-export class RespondCollaboratorInviteDto {
+@InputType()
+export class RespondCollaboratorInviteInput {
+  @Field()
   @IsBoolean()
   accept: boolean;
 
+  @Field()
   @IsInt()
   @Min(1)
   userId: number;

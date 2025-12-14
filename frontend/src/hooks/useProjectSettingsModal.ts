@@ -13,17 +13,22 @@
  * - Handle project deletion with proper permission checks.
  */
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
-  deleteProject,
-  updateProject,
-  type Project,
-} from "../services/projectService";
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
+import { type Project } from "../graphql/project.api";
+import { type CollaboratorRecord } from "../graphql/collaborator.api";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
 import {
-  fetchCollaboratorsByProject,
-  removeCollaborator,
-  type CollaboratorRecord,
-} from "../services/collaboratorService";
+  loadCollaboratorsForProject,
+  removeCollaboratorFromProject,
+  removeCollaboratorThunk,
+} from "../store/collaboratorsSlice";
+import { updateProjectThunk, deleteProjectThunk } from "../store/projectsSlice";
 
 /**
  * ProjectSettingsTabId
@@ -90,11 +95,13 @@ export function useProjectSettingsModal({
   const [statusTone, setStatusTone] = useState<"info" | "error">("info");
 
   // --- State: Collaborators ---
-  const [collaborators, setCollaborators] = useState<CollaboratorRecord[]>([]);
-  const [collaboratorsLoading, setCollaboratorsLoading] = useState(false);
-  const [collaboratorsError, setCollaboratorsError] = useState<string | null>(
-    null,
+  const dispatch = useAppDispatch();
+  const collaboratorsState = useAppSelector((state) =>
+    project?.id ? state.collaborators.byProjectId[project.id] : undefined,
   );
+  const collaborators = collaboratorsState?.list ?? [];
+  const collaboratorsLoading = collaboratorsState?.status === "loading";
+  const collaboratorsError = collaboratorsState?.error ?? null;
   const [collaboratorAction, setCollaboratorAction] = useState<string | null>(
     null,
   );
@@ -146,38 +153,10 @@ export function useProjectSettingsModal({
    * Effect: Load collaborator list when the "Collaborators" tab is opened.
    */
   useEffect(() => {
-    if (!project?.id || activeTab !== "collaborators") return;
-
-    let cancelled = false;
-    setCollaboratorsLoading(true);
-    setCollaboratorsError(null);
+    if (!open || activeTab !== "collaborators" || !project?.id) return;
     setCollaboratorAction(null);
-
-    const load = async () => {
-      try {
-        const data = await fetchCollaboratorsByProject(project.id);
-        if (cancelled) return;
-        setCollaborators(data);
-      } catch (error) {
-        if (cancelled) return;
-        const message =
-          error instanceof Error
-            ? error.message
-            : "Unable to load collaborators.";
-        setCollaboratorsError(message);
-        setCollaborators([]);
-      } finally {
-        if (!cancelled) {
-          setCollaboratorsLoading(false);
-        }
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, project?.id]);
+    void dispatch(loadCollaboratorsForProject(project.id));
+  }, [activeTab, dispatch, open, project?.id]);
 
   /**
    * Derived: Detect whether editable fields differ from the original project.
@@ -212,12 +191,17 @@ export function useProjectSettingsModal({
     setStatusMessage(null);
 
     try {
-      const updated = await updateProject(project.id, {
-        title: title.trim(),
-        description: description.trim(),
-        is_public: isPublic,
-        tags: selectedTags,
-      });
+      const updated = await dispatch(
+        updateProjectThunk({
+          projectId: project.id,
+          input: {
+            title: title.trim(),
+            description: description.trim(),
+            is_public: isPublic,
+            tags: selectedTags,
+          },
+        }),
+      ).unwrap();
       onProjectUpdated(updated);
       setStatusTone("info");
       setStatusMessage("Project details updated.");
@@ -237,26 +221,39 @@ export function useProjectSettingsModal({
    * Removes a collaborator from the current project.
    * Updates the collaborator list on success.
    */
-  const handleRemoveCollaborator = async (record: CollaboratorRecord) => {
-    if (!record.id) return;
-    setCollaboratorAction(null);
+  const handleRemoveCollaborator = useCallback(
+    async (record: CollaboratorRecord) => {
+      if (!record.id || !project?.id) return;
+      setCollaboratorAction(null);
 
-    try {
-      await removeCollaborator(record.id);
-      setCollaborators((prev) => prev.filter((item) => item.id !== record.id));
-      setCollaboratorAction(
-        `Removed ${
-          record.user?.username ?? record.user?.email ?? "collaborator"
-        }.`,
-      );
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Unable to remove collaborator.";
-      setCollaboratorAction(message);
-    }
-  };
+      try {
+        await dispatch(
+          removeCollaboratorThunk({
+            projectId: project.id,
+            collaboratorId: record.id,
+          }),
+        ).unwrap();
+        dispatch(
+          removeCollaboratorFromProject({
+            projectId: project.id,
+            collaboratorId: record.id,
+          }),
+        );
+        setCollaboratorAction(
+          `Removed ${
+            record.user?.username ?? record.user?.email ?? "collaborator"
+          }.`,
+        );
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Unable to remove collaborator.";
+        setCollaboratorAction(message);
+      }
+    },
+    [dispatch, project?.id],
+  );
 
   /**
    * handleDeleteProject
@@ -276,7 +273,9 @@ export function useProjectSettingsModal({
     setDeleteProjectError(null);
 
     try {
-      await deleteProject(project.id);
+      await dispatch(
+        deleteProjectThunk({ projectId: project.id }),
+      ).unwrap();
       setStatusTone("info");
       setStatusMessage("Project deleted.");
     } catch (error) {

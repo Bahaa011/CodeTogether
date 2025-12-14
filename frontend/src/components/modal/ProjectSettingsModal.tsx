@@ -22,10 +22,10 @@ import { useEffect, useMemo, useState } from "react";
 import Modal from "./Modal";
 import BackupHistoryModal from "./BackupHistoryModal";
 import ConfirmationDialog from "./ConfirmationDialog";
-import type { Project } from "../../services/projectService";
+import type { Project } from "../../graphql/project.api";
 import TagSelect from "../TagSelect";
 import { useProjectSettingsModal } from "../../hooks/useProjectSettingsModal";
-import type { CollaboratorRecord } from "../../services/collaboratorService";
+import type { CollaboratorRecord } from "../../graphql/collaborator.api";
 import "../../styles/project-settings.css";
 
 /**

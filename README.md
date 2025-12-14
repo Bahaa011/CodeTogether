@@ -1,9 +1,9 @@
 ## CodeTogether – Collaborative IDE Platform
 
-CodeTogether is a full‑stack TypeScript application that lets teams spin up lightweight “projects” with a shared Monaco editor, real‑time operational transform (OT) syncing, versioned backups, an invite system, and an integrated terminal/runner. The project is structured as:
+CodeTogether is a full‑stack TypeScript application that lets teams spin up lightweight “projects” with a shared Monaco editor, real‑time operational transform (OT) syncing, versioned backups, an invite system, a chatbot assistant, and an integrated terminal/runner. The project is structured as:
 
-- **Frontend** – Vite + React 19 + TypeScript, Socket.IO client, Monaco editor, custom workspace UI and modals.
-- **Backend** – NestJS 11 + TypeORM + PostgreSQL, Socket.IO gateway for OT, JWT auth with optional MFA, mailing, project/file/version services, and Terminal + Editor websockets.
+- **Frontend** – Vite + React 19 + TypeScript, Redux Toolkit for workspace state, Socket.IO client, Monaco editor, custom workspace UI and modals.
+- **Backend** – NestJS 11 + TypeORM + PostgreSQL, GraphQL (Apollo) resolvers, Socket.IO gateways for OT/terminal, JWT auth with optional MFA, mailing, project/file/version services.
 
 ---
 
@@ -14,6 +14,8 @@ CodeTogether is a full‑stack TypeScript application that lets teams spin up li
 - **Execution & terminal streaming** – run files from the editor and stream stdout/stderr (`TerminalGateway` + `useTerminal`).
 - **Permissions & invites** – owners can invite collaborators, enforce read-only access, and manage project tags.
 - **Authentication & MFA** – email login, optional 2FA, password reset and verification flows.
+- **State management with Redux Toolkit** for workspace files, sessions, notifications, and UI state.
+- **Built-in Chatbot assistant** that reads the active file, answers questions, and renders code snippets cleanly.
 - **Searchable explore/playground pages** – public project discovery and quick language playground with runnable samples.
 - **Responsive UI** with dark theme, navbar, sidebar, and multiple modal workflows (project settings, profiles, backups, etc.).
 
@@ -25,8 +27,8 @@ CodeTogether is a full‑stack TypeScript application that lets teams spin up li
 CodeTogether/
 ├── backend/                 # NestJS application (REST + WebSocket gateways)
 │   ├── src/
-│   │   ├── auth/            # Auth controller/service, JWT strategy, MFA handling
-│   │   ├── project/         # Project CRUD, tags, collaborators, DTOs
+│   │   ├── auth/            # Auth resolvers/service, JWT strategy, MFA handling
+│   │   ├── project/         # Project CRUD, tags, collaborators, DTOs + GraphQL resolvers
 │   │   ├── file/            # File CRUD + text OT helpers
 │   │   ├── version/         # Backup + restore logic
 │   │   ├── editor.gateway.ts# Socket.IO OT gateway
@@ -38,7 +40,7 @@ CodeTogether/
 │   │   ├── components/      # Monaco editor, sidebar, modals, navbar, etc.
 │   │   ├── hooks/           # Project workspace, realtime collaboration, terminal, forms
 │   │   ├── pages/           # Home, Explore, ProjectView, Playground, Auth flows
-│   │   ├── services/        # API clients (Axios) for auth, projects, files, versions
+│   │   ├── services/        # GraphQL client + service wrappers for auth, projects, files, versions
 │   │   └── styles/          # CSS modules for workspace + landing pages
 │   └── package.json
 └── README.md
@@ -55,7 +57,7 @@ CodeTogether/
 
 ---
 
-## Backend Setup (NestJS)
+## Backend Setup (NestJS + GraphQL)
 
 ```bash
 cd backend
@@ -97,8 +99,8 @@ npm run start:dev
 ```
 
 This will expose:
-- REST API at `http://localhost:3000`
-- Swagger docs at `http://localhost:3000/docs`
+- GraphQL endpoint at `http://localhost:3000/graphql` (Apollo Playground enabled in dev)
+- Swagger docs for legacy REST at `http://localhost:3000/docs`
 - Socket.IO namespaces for editor (`editor:*`) and terminal (`terminal:*`)
 
 ### Useful backend scripts
@@ -116,7 +118,7 @@ TypeORM currently runs with `synchronize: true` which auto-migrates schema; keep
 
 ---
 
-## Frontend Setup (React + Vite)
+## Frontend Setup (React + Vite + Redux)
 
 ```bash
 cd frontend
@@ -142,8 +144,6 @@ Then run the dev server:
 ```bash
 npm run dev
 ```
-
-The SPA is served at `http://localhost:5173` and proxies API/WebSocket calls to the backend URLs defined above.
 
 ### Useful frontend scripts
 

@@ -93,7 +93,7 @@ export class NotificationService {
 
     return invitations.find((invite) => {
       if (!invite.metadata) return false;
-      const meta = invite.metadata as Record<string, unknown>;
+      const meta = invite.metadata;
       return (
         Number(meta.projectId) === Number(projectId) &&
         (meta.status === 'pending' ||

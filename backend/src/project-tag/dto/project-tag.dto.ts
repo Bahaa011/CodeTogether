@@ -1,22 +1,22 @@
+import { Field, InputType, Int } from '@nestjs/graphql';
 import { IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
 
-/**
- * DTO for creating a new project tag.
- */
-export class CreateProjectTagDto {
+@InputType()
+export class CreateProjectTagInput {
+  @Field(() => String)
   @IsString()
   @IsNotEmpty()
   tag: string;
 
+  @Field(() => Int)
   @IsInt()
   @Min(1)
   projectId: number;
 }
 
-/**
- * DTO for updating an existing project tag.
- */
-export class UpdateProjectTagDto {
+@InputType()
+export class UpdateProjectTagInput {
+  @Field(() => String, { nullable: true })
   @IsOptional()
   @IsString()
   @IsNotEmpty()

@@ -22,13 +22,19 @@ export class Session {
   @PrimaryGeneratedColumn()
   id: number; // Primary key
 
-  @ManyToOne(() => Project, (project) => project.sessions, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Project, (project) => project.sessions, {
+    onDelete: 'CASCADE',
+  })
   project: Project; // Project this session belongs to
 
   @ManyToOne(() => User, (user) => user.sessions, { onDelete: 'CASCADE' })
   user: User; // User participating in this session
 
-  @Column({ type: 'enum', enum: ['active', 'ended', 'idle'], default: 'active' })
+  @Column({
+    type: 'enum',
+    enum: ['active', 'ended', 'idle'],
+    default: 'active',
+  })
   status: 'active' | 'ended' | 'idle'; // Current session state
 
   @CreateDateColumn()

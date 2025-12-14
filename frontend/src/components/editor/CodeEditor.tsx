@@ -253,7 +253,7 @@ export default function CodeEditor({
     }
 
     applyEdits(edits);
-  }, [file?.draftContent]);
+  }, [file, file?.draftContent]);
 
   /** Apply read-only mode dynamically */
   useEffect(() => {

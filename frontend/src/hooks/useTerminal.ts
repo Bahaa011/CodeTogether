@@ -166,6 +166,7 @@ export function useTerminal() {
     const handleDisconnect = () => {
       setConnectionState("disconnected");
       setIsRunning(false);
+      pendingRunRef.current = null;
       emitRunExecutionState(false);
     };
 
@@ -338,12 +339,19 @@ export function useTerminal() {
   // Stop current code execution
   const handleStop = useCallback(() => {
     const socket = socketRef.current;
-    if (!socket || !isRunning) return;
-    socket.emit("stop");
-    setIsRunning(false);
-    emitRunExecutionState(false);
+    if (!socket) {
+      appendOutput("Terminal connection is not ready.", "error");
+      return;
+    }
+    pendingRunRef.current = null;
+    if (isRunning) {
+      socket.emit("stop");
+      appendOutput("Stopping execution…", "info");
+      setIsRunning(false);
+      emitRunExecutionState(false);
+    }
     setInputValue("");
-  }, [isRunning]);
+  }, [appendOutput, isRunning]);
 
   // Derive terminal status label for UI display
   const statusLabel = useMemo(() => {

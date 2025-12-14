@@ -20,10 +20,10 @@ import { useCallback, useState } from "react";
 import { Navigate, useParams, useLocation } from "react-router-dom";
 import { resolveAssetUrl } from "../utils/url";
 import { useProfileData, useUserProfileData } from "../hooks/useProfileData";
-import { removeCollaborator } from "../services/collaboratorService";
+import { removeCollaborator } from "../graphql/collaborator.api";
 import EditProfileModal from "../components/modal/EditProfileModal";
 import ConfirmationDialog from "../components/modal/ConfirmationDialog";
-import { type Project } from "../services/projectService";
+import { type Project } from "../graphql/project.api";
 import "../styles/profile.css";
 
 /**
@@ -51,9 +51,11 @@ export default function Profile() {
    * Selects appropriate profile hook based on whether the user
    * is viewing their own or another profile.
    */
-  const profileData = viewingOther
-    ? useUserProfileData(Number(userId))
-    : useProfileData();
+  const ownProfileData = useProfileData();
+  const publicProfileData = useUserProfileData(
+    userId ? Number(userId) : null,
+  );
+  const profileData = viewingOther ? publicProfileData : ownProfileData;
 
   /**
    * Extract shared profile fields:
@@ -76,14 +78,11 @@ export default function Profile() {
   /**
    * Auth-only handlers and fields (only for own profile).
    */
-  const hasToken =
-    "hasToken" in profileData ? profileData.hasToken : undefined;
-  const handleLogout =
-    "handleLogout" in profileData ? profileData.handleLogout : undefined;
-  const handleSaveProfile =
-    "handleSaveProfile" in profileData ? profileData.handleSaveProfile : undefined;
-  const handleUploadAvatar =
-    "handleUploadAvatar" in profileData ? profileData.handleUploadAvatar : undefined;
+  const authProfile = viewingOther ? null : ownProfileData;
+  const hasToken = authProfile?.hasToken;
+  const handleLogout = authProfile?.handleLogout;
+  const handleSaveProfile = authProfile?.handleSaveProfile;
+  const handleUploadAvatar = authProfile?.handleUploadAvatar;
 
   /**
    * UI State Management
@@ -438,7 +437,7 @@ export default function Profile() {
               <button
                 type="button"
                 className="profile-hero-button profile-hero-button--ghost"
-                onClick={handleLogout}
+                onClick={() => handleLogout?.()}
               >
                 Log out
               </button>
@@ -513,14 +512,14 @@ export default function Profile() {
       </section>
 
       {/* ------------------ Modals ------------------ */}
-      {!viewingOther && (
+      {!viewingOther && handleSaveProfile && handleUploadAvatar && (
         <EditProfileModal
           open={isEditProfileOpen}
           onClose={() => setIsEditProfileOpen(false)}
           initialBio={user.bio ?? ""}
           initialAvatarUrl={user.avatar_url}
-          onSave={handleSaveProfile!}
-          onUploadAvatar={handleUploadAvatar!}
+          onSave={handleSaveProfile}
+          onUploadAvatar={handleUploadAvatar}
         />
       )}
 

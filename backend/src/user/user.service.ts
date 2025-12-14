@@ -55,7 +55,11 @@ export class UserService {
    * Update a user's profile (avatar or bio).
    * Returns the updated user or null if not found.
    */
-  async updateProfile(id: number, avatar_url?: string, bio?: string) {
+  async updateProfile(
+    id: number,
+    avatar_url?: string | null,
+    bio?: string | null,
+  ) {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) return null;
 

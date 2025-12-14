@@ -17,8 +17,9 @@ import {
   type FormEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { createProject } from "../services/projectService";
 import { getStoredUser } from "../utils/auth";
+import { useAppDispatch } from "../store/hooks";
+import { createProject as createProjectThunk } from "../store/projectsSlice";
 
 /**
  * useModalReset
@@ -52,6 +53,7 @@ export function useCreateProjectModal({
   open: boolean;
   onClose(): void;
 }) {
+  const dispatch = useAppDispatch();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setIsPrivate] = useState(false);
@@ -100,13 +102,15 @@ export function useCreateProjectModal({
     setError(null);
 
     try {
-      const project = await createProject({
-        title: trimmedTitle,
-        description: trimmedDescription,
-        owner_id: owner.id,
-        is_public: !isPrivate,
-        tags: selectedTags,
-      });
+      const project = await dispatch(
+        createProjectThunk({
+          title: trimmedTitle,
+          description: trimmedDescription,
+          owner_id: owner.id,
+          is_public: !isPrivate,
+          tags: selectedTags,
+        }),
+      ).unwrap();
 
       onClose();
       navigate(`/projects/${project.id}`);

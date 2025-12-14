@@ -30,6 +30,7 @@ import { useProjectWorkspace } from "../hooks/useProjectWorkspace";
 import "../styles/project-view.css";
 import "../styles/editor-pane.css";
 import { resolveAssetUrl } from "../utils/url";
+import ChatbotPanel from "../components/editor/ChatbotPanel";
 
 export default function ProjectView() {
   /**
@@ -252,6 +253,8 @@ export default function ProjectView() {
               {runButtonLabel}
             </span>
           </button>
+
+          <ChatbotPanel activeFile={activeFile} files={files} />
 
           <button
             type="button"
